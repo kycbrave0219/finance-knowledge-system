@@ -1,1 +1,1 @@
-# -finance-knowledge-system
+# finance-knowledge-system
