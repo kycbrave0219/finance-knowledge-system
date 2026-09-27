@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>財經閱讀系統 v1</title>
+<style>
+:root{
+  --bg:#f6f7fb; --panel:#fff; --line:#e5e7eb; --text:#111827; --muted:#6b7280;
+  --accent:#2563eb; --accent-soft:#eff6ff; --shadow:0 10px 30px rgba(15,23,42,.08);
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC","PingFang TC",sans-serif;background:var(--bg);color:var(--text)}
+button,input,textarea{font:inherit}
+.app{min-height:100vh;display:grid;grid-template-rows:auto 1fr}
+header{
+  height:64px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;
+  padding:0 18px;gap:14px;position:sticky;top:0;z-index:20
+}
+.brand{font-weight:800;font-size:19px;display:flex;align-items:center;gap:9px;white-space:nowrap}
+.search{flex:1;max-width:680px}
+.search input{width:100%;border:1px solid var(--line);border-radius:12px;padding:10px 13px;background:#fafafa;outline:none}
+.search input:focus{border-color:#93c5fd;box-shadow:0 0 0 3px #dbeafe}
+.layout{display:grid;grid-template-columns:250px minmax(0,1fr) 330px;min-height:calc(100vh - 64px)}
+.sidebar,.rightbar{background:#fff}
+.sidebar{border-right:1px solid var(--line);padding:14px}
+.rightbar{border-left:1px solid var(--line);padding:18px;overflow:auto}
+.section-title{font-size:12px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.08em;margin:8px 7px}
+.article-item{
+  padding:11px 12px;border-radius:11px;cursor:pointer;margin-bottom:6px;border:1px solid transparent
+}
+.article-item:hover{background:#f8fafc}
+.article-item.active{background:var(--accent-soft);border-color:#bfdbfe}
+.article-item .t{font-size:14px;font-weight:700;line-height:1.4}
+.article-item .m{font-size:12px;color:var(--muted);margin-top:4px}
+.main{padding:26px;min-width:0}
+.paper{
+  max-width:860px;margin:0 auto;background:#fff;border:1px solid var(--line);border-radius:18px;
+  box-shadow:var(--shadow);padding:28px 34px 38px
+}
+.meta{font-size:13px;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap}
+h1{font-size:27px;line-height:1.35;margin:9px 0 14px}
+.toolbar{
+  position:sticky;top:74px;z-index:10;display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  padding:10px;background:rgba(255,255,255,.96);backdrop-filter:blur(8px);
+  border:1px solid var(--line);border-radius:14px;margin:18px 0
+}
+.toolbtn{
+  border:1px solid var(--line);background:#fff;border-radius:10px;padding:8px 11px;cursor:pointer;
+  display:flex;align-items:center;gap:7px;font-size:13px;font-weight:650
+}
+.toolbtn:hover{background:#f8fafc}
+.swatch{width:16px;height:16px;border-radius:5px;border:1px solid rgba(0,0,0,.08)}
+.article-body{font-size:18px;line-height:1.95;color:#1f2937;outline:none}
+.article-body p{margin:1em 0}
+.finance-term{
+  color:#1d4ed8;background:#eff6ff;border-bottom:1px dashed #60a5fa;border-radius:4px;
+  padding:0 2px;cursor:pointer
+}
+.finance-term:hover{background:#dbeafe}
+mark.hl-yellow{background:#fff2a8}
+mark.hl-green{background:#cef7d2}
+mark.hl-blue{background:#d9ecff}
+mark.hl-pink{background:#ffd9e8}
+mark.user-hl{padding:0 .05em;border-radius:.18em}
+.note-box{
+  margin-top:24px;border-top:1px solid var(--line);padding-top:20px
+}
+.note-box textarea{
+  width:100%;min-height:100px;border:1px solid var(--line);border-radius:12px;padding:12px;resize:vertical;outline:none
+}
+.note-box textarea:focus{border-color:#93c5fd;box-shadow:0 0 0 3px #dbeafe}
+.right-empty{color:var(--muted);font-size:14px;line-height:1.8}
+.term-title{font-size:24px;font-weight:800;margin-bottom:4px}
+.term-en{color:var(--muted);margin-bottom:14px}
+.badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#f3f4f6;font-size:12px;margin-right:6px}
+.info-card{margin-top:14px;padding:14px;border:1px solid var(--line);border-radius:13px;background:#fafafa}
+.info-card h3{font-size:13px;margin:0 0 8px;color:#4b5563}
+.info-card p{margin:0;line-height:1.75}
+.toast{
+ position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#111827;color:#fff;
+ padding:10px 14px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:.2s;z-index:99
+}
+.toast.show{opacity:1}
+@media(max-width:1050px){
+  .layout{grid-template-columns:220px minmax(0,1fr)}
+  .rightbar{
+    position:fixed;right:0;top:64px;bottom:0;width:min(360px,88vw);z-index:30;transform:translateX(105%);
+    transition:.22s;box-shadow:-12px 0 30px rgba(15,23,42,.15)
+  }
+  .rightbar.open{transform:translateX(0)}
+}
+@media(max-width:720px){
+  header{padding:0 10px}.brand span:last-child{display:none}
+  .layout{display:block}
+  .sidebar{display:none}
+  .main{padding:12px}
+  #mobileArticleSelectWrap{display:block!important}
+  .paper{padding:20px 18px;border-radius:14px}
+  h1{font-size:23px}
+  .article-body{font-size:17px;line-height:1.85}
+  .toolbar{top:70px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div class="brand"><span>📈</span><span>財經閱讀系統</span></div>
+  <div class="search"><input id="search" placeholder="搜尋文章、名詞…" /></div>
+  <button class="toolbtn" id="showTerms">📖 名詞</button>
+</header>
+
+<div class="layout">
+  <aside class="sidebar">
+    <div class="section-title">閱讀清單</div>
+    <div id="articleList">
+      <div class="article-item active"><div class="t">示範｜CPI、利率與債券殖利率怎麼串起來？</div><div class="m">筆記・總體經濟・債券</div></div>
+      <div class="article-item"><div class="t">示範｜為什麼市場會先交易預期？</div><div class="m">概念・市場機制</div></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div id="mobileArticleSelectWrap" style="display:none;margin-bottom:10px">
+      <select id="mobileArticleSelect" style="width:100%;padding:12px;border:1px solid #dbe2ea;border-radius:12px;background:white;font-size:16px">
+        <option value="a1">示範｜CPI、利率與債券殖利率怎麼串起來？</option>
+        <option value="a2">示範｜為什麼市場會先交易預期？</option>
+      </select>
+    </div>
+    <article class="paper">
+      <div class="meta" id="meta"><span>筆記</span><span>•</span><span>總體經濟・債券</span></div>
+      <h1 id="title">示範｜CPI、利率與債券殖利率怎麼串起來？</h1>
+
+      <div class="toolbar">
+        <button class="toolbtn hl" data-color="yellow"><span class="swatch" style="background:#fff2a8"></span>黃色</button>
+        <button class="toolbtn hl" data-color="green"><span class="swatch" style="background:#cef7d2"></span>綠色</button>
+        <button class="toolbtn hl" data-color="blue"><span class="swatch" style="background:#d9ecff"></span>藍色</button>
+        <button class="toolbtn hl" data-color="pink"><span class="swatch" style="background:#ffd9e8"></span>粉紅</button>
+        <button class="toolbtn" id="removeHL">⌫ 取消標記</button>
+        <button class="toolbtn" id="clearHL">🧹 清除本篇</button>
+      </div>
+
+      <div id="articleBody" class="article-body">
+        <p>當市場看到 <span class="finance-term" data-term="CPI">CPI</span> 等通膨數據高於預期時，常會重新評估未來的 <span class="finance-term" data-term="利率">利率</span> 路徑。</p>
+        <p>如果市場認為未來利率可能維持較高水準，債券價格可能先反映這種預期，而 <span class="finance-term" data-term="債券殖利率">債券殖利率</span> 也可能因此發生變化。</p>
+        <p>閱讀這類新聞時，不要只記住「數字上升或下降」，而是要試著把「經濟數據 → 市場預期 → 利率 → 債券價格與殖利率」串起來。</p>
+      </div>
+
+      <div class="note-box">
+        <div style="font-weight:750;margin-bottom:8px">📝 我的註記</div>
+        <textarea id="note" placeholder="輸入自己的理解、疑問或待查資料…"></textarea>
+      </div>
+    </article>
+  </main>
+
+  <aside class="rightbar" id="rightbar">
+    <div id="termPanel" class="right-empty">點文章中的藍色財經名詞，即時查看解釋。</div>
+  </aside>
+</div>
+</div>
+<div class="toast" id="toast"></div>
+
+<noscript>
+<div style="margin:12px;padding:12px;border:1px solid #f59e0b;background:#fff7ed;border-radius:12px;color:#9a3412;font-weight:700">
+目前開啟方式沒有執行 JavaScript，所以只能看到示範文章，螢光筆與名詞點擊功能無法測試。請用 Safari／Chrome 開啟網頁版。
+</div>
+</noscript>
+<script>
+const terms = {
+  "CPI":{
+    title:"消費者物價指數（CPI）", en:"Consumer Price Index",
+    category:"經濟指標", mastery:"模糊",
+    short:"衡量一籃子消費商品與服務價格變動的指標，常用來觀察通膨。",
+    detail:"把它想成一個固定購物籃：比較這個購物籃現在比以前貴多少。",
+    caution:"CPI 上升不代表所有商品都一起上漲；閱讀時要分清楚年增率、月增率與核心 CPI。",
+    related:["PCE","PPI","核心 CPI","通膨"]
+  },
+  "利率":{
+    title:"利率", en:"Interest Rate",
+    category:"總體經濟", mastery:"模糊",
+    short:"資金的價格；借錢要付出的成本，也會影響儲蓄、投資、匯率與資產估值。",
+    detail:"如果把資金當成商品，利率就是使用這筆資金的價格。",
+    caution:"文章寫「利率」時，要確認指的是政策利率、市場利率、債券殖利率，還是實質利率。",
+    related:["政策利率","實質利率","債券殖利率","Fed"]
+  },
+  "債券殖利率":{
+    title:"債券殖利率", en:"Bond Yield / Yield",
+    category:"債券", mastery:"陌生",
+    short:"用目前債券價格衡量持有債券所對應的報酬率概念；一般而言，債券價格與殖利率反向變動。",
+    detail:"同一張債券，如果市場價格跌了，新的買家用較低價格取得同樣的現金流，因此對應的殖利率會提高。",
+    caution:"票面利率、當期殖利率、到期殖利率並不是同一件事。",
+    related:["債券價格","利率","殖利率曲線","票面利率"]
+  }
+};
+
+const articles = [
+ {
+   id:"a1",
+   title:"示範｜CPI、利率與債券殖利率怎麼串起來？",
+   type:"筆記", topic:"總體經濟・債券",
+   body:[
+     `當市場看到 <span class="finance-term" data-term="CPI">CPI</span> 等通膨數據高於預期時，常會重新評估未來的 <span class="finance-term" data-term="利率">利率</span> 路徑。`,
+     `如果市場認為未來利率可能維持較高水準，債券價格可能先反映這種預期，而 <span class="finance-term" data-term="債券殖利率">債券殖利率</span> 也可能因此發生變化。`,
+     `閱讀這類新聞時，不要只記住「數字上升或下降」，而是要試著把「經濟數據 → 市場預期 → 利率 → 債券價格與殖利率」串起來。`
+   ]
+ },
+ {
+   id:"a2",
+   title:"示範｜為什麼市場會先交易預期？",
+   type:"概念", topic:"市場機制",
+   body:[
+     `金融市場通常會先根據資訊調整價格，而不是等事件正式發生後才反應。`,
+     `因此，當投資人預期未來 <span class="finance-term" data-term="利率">利率</span> 可能改變時，相關資產價格可能提前調整。`,
+     `這也是理解債券、股票與外匯市場時很重要的一個觀念：市場價格反映的不只是現在，也包含對未來的預期。`
+   ]
+ }
+];
+
+let currentId = localStorage.getItem("fin-current") || articles[0].id;
+
+function key(type,id){ return `fin-${type}-${id}`; }
+function toast(msg){
+  const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"),1400);
+}
+function renderList(filter=""){
+ const box=document.getElementById("articleList"); box.innerHTML="";
+ articles.filter(a => (a.title+a.topic).toLowerCase().includes(filter.toLowerCase())).forEach(a=>{
+   const d=document.createElement("div"); d.className="article-item"+(a.id===currentId?" active":"");
+   d.innerHTML=`<div class="t">${a.title}</div><div class="m">${a.type}・${a.topic}</div>`;
+   d.onclick=()=>{currentId=a.id;localStorage.setItem("fin-current",currentId);renderArticle();renderList(filter);}
+   box.appendChild(d);
+ });
+}
+function renderArticle(){
+ const a=articles.find(x=>x.id===currentId)||articles[0];
+ document.getElementById("title").textContent=a.title;
+ document.getElementById("meta").innerHTML=`<span>${a.type}</span><span>•</span><span>${a.topic}</span>`;
+ const body=document.getElementById("articleBody");
+ const saved=localStorage.getItem(key("body",a.id));
+ body.innerHTML=saved || a.body.map(p=>`<p>${p}</p>`).join("");
+ document.getElementById("note").value=localStorage.getItem(key("note",a.id))||"";
+ bindTerms();
+}
+function bindTerms(){
+ document.querySelectorAll(".finance-term").forEach(el=>{
+   el.onclick=(e)=>{e.stopPropagation();showTerm(el.dataset.term);}
+ });
+}
+function showTerm(name){
+ const t=terms[name]; if(!t)return;
+ document.getElementById("termPanel").innerHTML=`
+   <div class="term-title">${t.title}</div>
+   <div class="term-en">${t.en}</div>
+   <div><span class="badge">${t.category}</span><span class="badge">掌握：${t.mastery}</span></div>
+   <div class="info-card"><h3>一句話解釋</h3><p>${t.short}</p></div>
+   <div class="info-card"><h3>白話理解</h3><p>${t.detail}</p></div>
+   <div class="info-card"><h3>閱讀時注意</h3><p>${t.caution}</p></div>
+   <div class="info-card"><h3>相關概念</h3><p>${t.related.join("・")}</p></div>`;
+ document.getElementById("rightbar").classList.add("open");
+}
+function saveBody(){
+ localStorage.setItem(key("body",currentId),document.getElementById("articleBody").innerHTML);
+ bindTerms();
+}
+function highlight(color){
+ const sel=window.getSelection();
+ if(!sel || sel.rangeCount===0 || sel.isCollapsed){toast("請先選取文章文字");return;}
+ const range=sel.getRangeAt(0);
+ const body=document.getElementById("articleBody");
+ if(!body.contains(range.commonAncestorContainer)){toast("只能標記文章內容");return;}
+ try{
+   const mark=document.createElement("mark");
+   mark.className=`user-hl hl-${color}`;
+   range.surroundContents(mark);
+   sel.removeAllRanges(); saveBody(); toast("已標記重點");
+ }catch(e){
+   const frag=range.extractContents();
+   const mark=document.createElement("mark");
+   mark.className=`user-hl hl-${color}`;
+   mark.appendChild(frag); range.insertNode(mark);
+   sel.removeAllRanges(); saveBody(); toast("已標記重點");
+ }
+}
+document.querySelectorAll(".hl").forEach(b=>b.onclick=()=>highlight(b.dataset.color));
+
+document.getElementById("removeHL").onclick=()=>{
+ const sel=window.getSelection();
+ if(!sel || sel.rangeCount===0){toast("請先點選或選取標記文字");return;}
+ let n=sel.anchorNode;
+ if(n && n.nodeType===3)n=n.parentElement;
+ const mark=n?.closest?.("mark.user-hl");
+ if(!mark){toast("目前位置不是螢光標記");return;}
+ mark.replaceWith(...mark.childNodes); saveBody(); toast("已取消標記");
+};
+document.getElementById("clearHL").onclick=()=>{
+ if(!confirm("要清除本篇所有螢光標記嗎？"))return;
+ document.querySelectorAll("#articleBody mark.user-hl").forEach(m=>m.replaceWith(...m.childNodes));
+ saveBody(); toast("已清除本篇標記");
+};
+document.getElementById("note").addEventListener("input",e=>{
+ localStorage.setItem(key("note",currentId),e.target.value);
+});
+document.getElementById("search").addEventListener("input",e=>renderList(e.target.value));
+document.getElementById("showTerms").onclick=()=>{
+ const rb=document.getElementById("rightbar"); rb.classList.toggle("open");
+ if(!rb.classList.contains("open"))return;
+ document.getElementById("termPanel").innerHTML=
+   `<div class="term-title">名詞快速查</div>`+
+   Object.keys(terms).map(k=>`<div class="info-card" style="cursor:pointer" onclick="showTerm('${k}')"><h3>${terms[k].title}</h3><p>${terms[k].short}</p></div>`).join("");
+};
+
+const mobileSel=document.getElementById("mobileArticleSelect");
+if(mobileSel){
+  mobileSel.value=currentId;
+  mobileSel.addEventListener("change",e=>{
+    currentId=e.target.value;
+    localStorage.setItem("fin-current",currentId);
+    renderArticle();renderList();
+  });
+}
+renderList();renderArticle();
+</script>
+</body>
+</html>
