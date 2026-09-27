@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>財經閱讀系統 v2.1</title>
+<title>財經閱讀系統 v2.4</title>
 <style>
 :root{
   --bg:#f6f7fb; --panel:#fff; --line:#e5e7eb; --text:#111827; --muted:#6b7280;
@@ -215,6 +215,40 @@ mark.user-hl{padding:0 .05em;border-radius:.18em}
 .info-card{margin-top:14px;padding:14px;border:1px solid var(--line);border-radius:13px;background:#fafafa}
 .info-card h3{font-size:13px;margin:0 0 8px;color:#4b5563}
 .info-card p{margin:0;line-height:1.75}
+.term-panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-right:48px;margin-bottom:10px}
+.term-panel-head .term-title{margin-bottom:0}
+.term-mini-btn{border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;border-radius:10px;padding:8px 10px;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap}
+.term-mini-btn.secondary{border-color:var(--line);background:#fff;color:#475569}
+.term-list-search{margin:10px 0 12px}
+.term-list-search input{width:100%;border:1px solid var(--line);border-radius:11px;padding:10px 11px;background:#fff;outline:none}
+.term-list-search input:focus{border-color:#93c5fd;box-shadow:0 0 0 3px #dbeafe}
+.term-list-count{font-size:12px;color:#64748b;margin:-3px 0 8px}
+.term-detail-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-right:48px;margin-bottom:12px}
+.term-detail-nav-left,.term-detail-nav-right{display:flex;align-items:center;gap:7px}
+.term-list-card{cursor:pointer}
+.term-list-card:active{transform:scale(.995)}
+.term-modal{position:fixed;inset:0;z-index:130;display:none;align-items:flex-end;justify-content:center;background:rgba(15,23,42,.28);padding:14px}
+.term-modal.show{display:flex}
+.term-sheet{width:min(620px,100%);background:#fff;border-radius:18px;padding:18px;box-shadow:0 24px 70px rgba(15,23,42,.28);max-height:88vh;overflow:auto}
+.term-sheet h2{margin:0 0 14px;font-size:20px}
+.term-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.term-field{margin-bottom:11px}
+.term-field label{display:block;font-size:12px;font-weight:800;color:#475569;margin-bottom:6px}
+.term-field input,.term-field textarea,.term-field select{width:100%;border:1px solid var(--line);border-radius:11px;padding:10px 11px;background:#fff;outline:none}
+.term-field input:focus,.term-field textarea:focus,.term-field select:focus{border-color:#93c5fd;box-shadow:0 0 0 3px #dbeafe}
+.term-field textarea{min-height:82px;resize:vertical;line-height:1.6}
+.term-help{font-size:12px;color:#64748b;line-height:1.55;margin-top:-2px}
+.term-selection-preview{display:none;margin:0 0 12px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:11px;background:#f8fafc;color:#475569;font-size:13px;line-height:1.6}
+.term-selection-preview.show{display:block}
+.term-duplicate{display:none;margin:10px 0 12px;padding:11px 12px;border:1px solid #f59e0b;border-radius:12px;background:#fff7ed;color:#9a3412;font-size:13px;line-height:1.55}
+.term-duplicate.show{display:block}
+.term-duplicate-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}
+.term-duplicate-actions button{border:1px solid #fdba74;background:#fff;color:#9a3412;border-radius:9px;padding:7px 9px;font-weight:750}
+.term-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:12px}
+.term-actions button{border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px 13px;font-weight:750}
+.term-actions .primary{background:#2563eb;color:#fff;border-color:#2563eb}
+.term-actions .danger{color:#b91c1c;background:#fff7f7;margin-right:auto}
+@media(max-width:720px){.term-form-grid{grid-template-columns:1fr}}
 .toast{
  position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#111827;color:#fff;
  padding:10px 14px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:.2s;z-index:99
@@ -334,6 +368,7 @@ mark.user-hl{padding:0 .05em;border-radius:.18em}
     <button class="color-btn hl" data-color="gray" aria-label="灰色" title="灰色" style="background:#e5e7eb"></button>
   </div>
   <button class="selection-action" id="moreColorsBtn">＋更多</button>
+  <button class="selection-action" id="addTerm">📖＋名詞</button>
   <button class="selection-action" id="addAnnotation">📝 註解</button>
   <button class="selection-action danger" id="removeHL">取消標記</button>
   <button class="selection-action" id="closeHLToolbar" aria-label="關閉">×</button>
@@ -412,6 +447,39 @@ mark.user-hl{padding:0 .05em;border-radius:.18em}
     </div>
   </div>
 </div>
+
+<div class="term-modal" id="termModal" aria-hidden="true">
+  <div class="term-sheet" role="dialog" aria-modal="true" aria-labelledby="termModalTitle">
+    <h2 id="termModalTitle">＋ 新增名詞</h2>
+    <div class="term-selection-preview" id="termSelectionPreview"></div>
+    <div class="term-form-grid">
+      <div class="term-field"><label for="termNameInput">名詞名稱</label><input id="termNameInput" placeholder="例如：CPI、利率、勞保" /></div>
+      <div class="term-field"><label for="termTitleInput">顯示名稱</label><input id="termTitleInput" placeholder="可留空，預設同名詞名稱" /></div>
+    </div>
+    <div class="term-form-grid">
+      <div class="term-field"><label for="termEnglishInput">英文名稱（可留空）</label><input id="termEnglishInput" placeholder="例如：Consumer Price Index" /></div>
+      <div class="term-field"><label for="termAliasesInput">別名／縮寫（可留空）</label><input id="termAliasesInput" placeholder="多個請用逗號分隔，例如：消費者物價指數, CPI" /></div>
+    </div>
+    <div class="term-form-grid">
+      <div class="term-field"><label for="termCategoryInput">分類</label><input id="termCategoryInput" placeholder="例如：經濟指標、總體經濟" /></div>
+      <div class="term-field"><label for="termMasteryInput">掌握程度</label><select id="termMasteryInput"><option>陌生</option><option selected>模糊</option><option>熟悉</option></select></div>
+    </div>
+    <div class="term-field"><label for="termShortInput">一句話解釋</label><textarea id="termShortInput" placeholder="用一句話說明這個名詞。"></textarea></div>
+    <div class="term-field"><label for="termDetailInput">白話理解</label><textarea id="termDetailInput" placeholder="用比較容易記住的方式說明。"></textarea></div>
+    <div class="term-field"><label for="termCautionInput">閱讀時注意</label><textarea id="termCautionInput" placeholder="閱讀新聞或文章時要注意什麼？"></textarea></div>
+    <div class="term-field"><label for="termRelatedInput">相關概念</label><input id="termRelatedInput" placeholder="多個請用逗號分隔" /></div>
+    <div class="term-help">新增與修改時都會自動檢查重複名詞；大小寫、全半形、前後空白與常見括號差異會先正規化再比對。</div>
+    <div class="term-duplicate" id="termDuplicateWarning">
+      <div id="termDuplicateText"></div>
+      <div class="term-duplicate-actions"><button type="button" id="viewDuplicateTerm">查看既有名詞</button><button type="button" id="editDuplicateTerm">修改既有名詞</button></div>
+    </div>
+    <div class="term-actions">
+      <button class="danger" id="deleteTerm" style="display:none">刪除名詞</button>
+      <button id="cancelTerm">取消</button>
+      <button class="primary" id="saveTerm">儲存名詞</button>
+    </div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <noscript>
@@ -420,9 +488,10 @@ mark.user-hl{padding:0 .05em;border-radius:.18em}
 </div>
 </noscript>
 <script>
-const terms = {
+const defaultTerms = {
   "CPI":{
     title:"消費者物價指數（CPI）", en:"Consumer Price Index",
+    aliases:["消費者物價指數"],
     category:"經濟指標", mastery:"模糊",
     short:"衡量一籃子消費商品與服務價格變動的指標，常用來觀察通膨。",
     detail:"把它想成一個固定購物籃：比較這個購物籃現在比以前貴多少。",
@@ -430,7 +499,7 @@ const terms = {
     related:["PCE","PPI","核心 CPI","通膨"]
   },
   "利率":{
-    title:"利率", en:"Interest Rate",
+    title:"利率", en:"Interest Rate", aliases:[],
     category:"總體經濟", mastery:"模糊",
     short:"資金的價格；借錢要付出的成本，也會影響儲蓄、投資、匯率與資產估值。",
     detail:"如果把資金當成商品，利率就是使用這筆資金的價格。",
@@ -438,7 +507,7 @@ const terms = {
     related:["政策利率","實質利率","債券殖利率","Fed"]
   },
   "債券殖利率":{
-    title:"債券殖利率", en:"Bond Yield / Yield",
+    title:"債券殖利率", en:"Bond Yield / Yield", aliases:["殖利率"],
     category:"債券", mastery:"陌生",
     short:"用目前債券價格衡量持有債券所對應的報酬率概念；一般而言，債券價格與殖利率反向變動。",
     detail:"同一張債券，如果市場價格跌了，新的買家用較低價格取得同樣的現金流，因此對應的殖利率會提高。",
@@ -446,6 +515,17 @@ const terms = {
     related:["債券價格","利率","殖利率曲線","票面利率"]
   }
 };
+function loadTerms(){
+  try{
+    const saved=JSON.parse(localStorage.getItem("fin-terms-v1")||"null");
+    if(saved && typeof saved==="object" && !Array.isArray(saved) && Object.keys(saved).length)return saved;
+  }catch(e){}
+  const initial=JSON.parse(JSON.stringify(defaultTerms));
+  localStorage.setItem("fin-terms-v1",JSON.stringify(initial));
+  return initial;
+}
+function saveTerms(){localStorage.setItem("fin-terms-v1",JSON.stringify(terms))}
+let terms=loadTerms();
 
 const defaultArticles = [
  {
@@ -562,23 +642,126 @@ function normalizeImportedText(text){
  return String(text||"").replace(/\r/g,"").replace(/[ \t]+\n/g,"\n").replace(/\n{3,}/g,"\n\n").trim();
 }
 
-// 移除閱讀器／新聞頁常見的獨立廣告提示，但保留正文中正常提到「廣告」的句子。
+// 移除閱讀器／新聞頁常見的廣告、導流與推薦新聞區塊。
+// 原則：只處理「明確像廣告／導流模組」的文字，避免誤刪正文中正常提到廣告、LINE、新聞等內容。
+function importedLineText(value){
+ const t=String(value||"").replace(/\u00a0/g," ").replace(/\s+/g," ").trim();
+ return t;
+}
+
 function isImportedNoiseLine(value){
-  const t=String(value||"").replace(/\s+/g," ").trim();
-  if(!t)return false;
-  return /^廣告\s*[（(]?\s*請繼續閱讀(?:本文|全文)?\s*[）)]?\s*$/i.test(t) ||
-         /^advertisement\s*[（(]?\s*(?:continue reading|read more).*?[）)]?\s*$/i.test(t);
+ const t=importedLineText(value);
+ if(!t)return false;
+ return /^廣告\s*[（(]?\s*請繼續閱讀(?:本文|全文)?\s*[）)]?\s*$/i.test(t) ||
+        /^advertisement\s*[（(]?\s*(?:continue reading|read more).*?[）)]?\s*$/i.test(t) ||
+        /^(?:贊助|sponsored)\s*(?:內容|content)?\s*$/i.test(t) ||
+        /^下載\s*(?:app|應用程式)\s*$/i.test(t);
 }
+
+// 判斷常見「廣告／導流／追蹤／訂閱／推薦閱讀」區塊標題。
+// 不綁定特定媒體名稱，改用版型與語意規則判斷。
+function isImportedPromoHeader(value){
+ const t=importedLineText(value).replace(/[！!。．.：:]+$/,"");
+ if(!t)return false;
+
+ return /^(?:加入|追蹤|訂閱|下載|立即加入|立即下載).{0,24}(?:LINE|官方帳號|好友|APP|App|電子報|通知|會員)/i.test(t) ||
+        /^(?:LINE\s*)?(?:新聞|消息|資訊).{0,10}(?:不漏接|即時掌握)$/i.test(t) ||
+        /^(?:更多|相關|推薦|延伸|熱門|精選)(?:新聞|文章|閱讀|內容|報導)$/i.test(t) ||
+        /^(?:你可能也喜歡|猜你喜歡|看更多|繼續閱讀|延伸閱讀)$/i.test(t);
+}
+
+function looksLikeRecommendationHeadline(value){
+ const t=importedLineText(value);
+ if(!t)return false;
+ if(t.length<4 || t.length>100)return false;
+
+ // 正文完整句子通常有句號；推薦新聞標題多半較短且沒有正文式結尾。
+ if(/[。！？!?]$/.test(t) && t.length>55)return false;
+
+ // 明顯的文章段落不當成推薦標題。
+ if(/^(?:記者|文／|圖／|編輯|作者|來源|發布時間|更新時間)[:：]/.test(t))return false;
+
+ return true;
+}
+
+function isTailRecommendationHeader(value){
+ const t=importedLineText(value).replace(/[！!。．.：:]+$/,"");
+ return /^(?:更多|相關|推薦|延伸|熱門|精選)(?:新聞|文章|閱讀|內容|報導)$/i.test(t) ||
+        /^(?:你可能也喜歡|猜你喜歡|看更多|繼續閱讀|延伸閱讀)$/i.test(t);
+}
+
 function removeImportedNoiseLines(text){
-  return normalizeImportedText(String(text||"").split("\n").filter(line=>!isImportedNoiseLine(line)).join("\n"));
+ const lines=String(text||"").replace(/\r/g,"").split("\n");
+ const out=[];
+ const total=Math.max(lines.length,1);
+ let promoRemaining=0;
+
+ for(let i=0;i<lines.length;i++){
+   const line=lines[i];
+   const t=importedLineText(line);
+
+   if(isImportedNoiseLine(t))continue;
+
+   if(isImportedPromoHeader(t)){
+     const nearTail = i/total >= 0.55;
+
+     // 「追蹤／訂閱／LINE／下載 APP」這種強 CTA：
+     // 不論出現在何處都移除標題，並略過後方最多 4 則短內容。
+     const strongCta =
+       /(?:加入|追蹤|訂閱|下載|LINE|官方帳號|好友|電子報|不漏接|即時掌握)/i.test(t);
+
+     // 「更多新聞／延伸閱讀／相關文章」則只在文章後半段視為尾端推薦區，
+     // 避免誤刪正文中真正的小標題。
+     if(strongCta || (nearTail && isTailRecommendationHeader(t))){
+       promoRemaining=4;
+       continue;
+     }
+   }
+
+   if(promoRemaining>0){
+     if(!t)continue;
+     if(looksLikeRecommendationHeadline(t)){
+       promoRemaining--;
+       continue;
+     }
+     promoRemaining=0;
+   }
+
+   out.push(line);
+ }
+
+ return normalizeImportedText(out.join("\n"));
 }
+
 function removeImportedNoiseFromDom(root){
-  if(!root)return false;
-  let changed=false;
-  [...root.querySelectorAll("p,li,blockquote")].forEach(el=>{
-    if(isImportedNoiseLine(el.textContent||"")){el.remove();changed=true;}
-  });
-  return changed;
+ if(!root)return false;
+ let changed=false;
+ const blocks=[...root.querySelectorAll("p,li,blockquote,div")];
+
+ for(const el of blocks){
+   if(!el.isConnected)continue;
+   const t=importedLineText(el.textContent||"");
+
+   if(isImportedNoiseLine(t)){
+     el.remove();changed=true;continue;
+   }
+
+   if(isImportedPromoHeader(t)){
+     let removed=0;
+     let next=el.nextElementSibling;
+     el.remove();changed=true;
+
+     while(next && removed<3){
+       const candidate=next;
+       next=next.nextElementSibling;
+       const ct=importedLineText(candidate.textContent||"");
+       if(!ct)continue;
+       if(!looksLikeRecommendationHeadline(ct))break;
+       candidate.remove();removed++;changed=true;
+     }
+   }
+ }
+ return changed;
 }
 
 /* 清理網址閱讀器常帶入的技術欄位：
@@ -723,10 +906,17 @@ function extractHtmlArticle(html){
  ).trim();
  const root=(doc.querySelector("article")||doc.querySelector("main")||doc.body)?.cloneNode(true);
  if(!root)return {title,text:"",publishedAt};
+
+ // 先移除明顯的廣告／贊助／促銷節點，再轉成純文字。
  root.querySelectorAll("script,style,noscript,svg,nav,footer,header,aside,form,button").forEach(el=>el.remove());
+ root.querySelectorAll(
+   '[class*="advert" i],[id*="advert" i],[class*="sponsor" i],[id*="sponsor" i],[class*="promo" i],[id*="promo" i]'
+ ).forEach(el=>el.remove());
+
  root.querySelectorAll("br").forEach(br=>br.replaceWith("\n"));
  root.querySelectorAll("p,h1,h2,h3,h4,h5,h6,li,blockquote,section,div").forEach(el=>el.append("\n\n"));
- return {title,text:normalizeImportedText(root.textContent||""),publishedAt};
+
+ return {title,text:removeImportedNoiseLines(root.textContent||""),publishedAt};
 }
 
 function safeHttpUrl(value){
@@ -1114,27 +1304,231 @@ function closeTerms(){
  document.getElementById("drawerBackdrop").classList.remove("open");
 }
 
-document.addEventListener("selectionchange",()=>{
- setTimeout(()=>{
-   if(captureArticleSelection())return;
-   const sel=window.getSelection();
-   if(toolbarInteraction || moreColorsPanel.classList.contains("show"))return;
-   if(!activeMark && (!sel || sel.isCollapsed)) hideHLToolbar();
- },0);
-});
+let termListState={filter:"",scrollTop:0};
+let termEditorMode="new";
+let editingTermKey=null;
+let duplicateTermKey=null;
+let pendingTermSelectionText="";
 
+function normalizeTermName(value){
+ return String(value||"")
+   .normalize("NFKC")
+   .toLowerCase()
+   .replace(/[（]/g,"(").replace(/[）]/g,")")
+   .replace(/[\s\u3000]+/g,"")
+   .replace(/[，,、；;：:。．.「」『』【】\[\]{}<>〈〉《》“”"'`]/g,"")
+   .trim();
+}
+function termVariants(key,t={}){
+ const raw=[key,t.title,t.en,...(Array.isArray(t.aliases)?t.aliases:[])].filter(Boolean);
+ const expanded=[];
+ raw.forEach(v=>{
+   const x=String(v).trim(); if(!x)return;
+   expanded.push(x);
+   const noParen=x.replace(/[（(][^）)]*[）)]/g,"").trim();
+   if(noParen && noParen!==x)expanded.push(noParen);
+   for(const m of x.matchAll(/[（(]([^）)]+)[）)]/g))if(m[1]?.trim())expanded.push(m[1].trim());
+ });
+ return [...new Set(expanded.map(normalizeTermName).filter(Boolean))];
+}
+function findDuplicateTerm(name,title="",aliases=[],excludeKey=null){
+ const probes=termVariants(name,{title,aliases});
+ if(!probes.length)return null;
+ for(const [key,t] of Object.entries(terms)){
+   if(excludeKey && key===excludeKey)continue;
+   const variants=termVariants(key,t);
+   if(probes.some(p=>variants.includes(p)))return key;
+ }
+ return null;
+}
+function parseTermListInput(value){
+ return [...new Set(String(value||"").split(/[，,、;；]/).map(x=>x.trim()).filter(Boolean))];
+}
+function termMatchesFilter(key,t,filter){
+ const q=normalizeTermName(filter); if(!q)return true;
+ const hay=[key,t.title,t.en,t.category,t.mastery,...(t.aliases||[]),...(t.related||[]),t.short,t.detail,t.caution].map(normalizeTermName).join(" ");
+ return hay.includes(q);
+}
+function renderTermList(filter=termListState.filter,restoreScroll=true){
+ const panel=document.getElementById("termPanel");
+ const rb=document.getElementById("rightbar");
+ termListState.filter=filter||"";
+ panel.className="";
+ panel.innerHTML=`
+   <div class="term-panel-head"><div class="term-title">名詞快速查</div><button type="button" class="term-mini-btn" id="newTermFromList">＋ 名詞</button></div>
+   <div class="term-list-search"><input id="termSearchInput" placeholder="搜尋名詞、縮寫、分類…" value="${esc(termListState.filter)}" /></div>
+   <div class="term-list-count" id="termListCount"></div>
+   <div id="termListCards"></div>`;
+ const entries=Object.entries(terms).filter(([k,t])=>termMatchesFilter(k,t,termListState.filter));
+ document.getElementById("termListCount").textContent=`${entries.length} / ${Object.keys(terms).length} 個名詞`;
+ const box=document.getElementById("termListCards");
+ if(!entries.length){box.innerHTML='<div class="annotation-empty">找不到符合的名詞。</div>'}
+ else entries.forEach(([k,t])=>{
+   const card=document.createElement("div");
+   card.className="info-card term-list-card";
+   card.innerHTML=`<h3>${esc(t.title||k)}</h3><p>${esc(t.short||"尚未填寫解釋")}</p>`;
+   card.onclick=()=>{
+     termListState.filter=document.getElementById("termSearchInput")?.value||"";
+     termListState.scrollTop=rb.scrollTop;
+     showTerm(k);
+   };
+   box.appendChild(card);
+ });
+ const input=document.getElementById("termSearchInput");
+ input.addEventListener("input",()=>{termListState.filter=input.value;termListState.scrollTop=0;renderTermList(input.value,false)});
+ document.getElementById("newTermFromList").onclick=()=>openTermModal("new");
+ openTerms();
+ requestAnimationFrame(()=>{rb.scrollTop=restoreScroll?termListState.scrollTop:0});
+}
 function showTerm(name){
  const t=terms[name]; if(!t)return;
- document.getElementById("termPanel").innerHTML=`
-   <div class="term-title">${t.title}</div>
-   <div class="term-en">${t.en}</div>
-   <div><span class="badge">${t.category}</span><span class="badge">掌握：${t.mastery}</span></div>
-   <div class="info-card"><h3>一句話解釋</h3><p>${t.short}</p></div>
-   <div class="info-card"><h3>白話理解</h3><p>${t.detail}</p></div>
-   <div class="info-card"><h3>閱讀時注意</h3><p>${t.caution}</p></div>
-   <div class="info-card"><h3>相關概念</h3><p>${t.related.join("・")}</p></div>`;
+ const panel=document.getElementById("termPanel");
+ panel.className="";
+ panel.innerHTML=`
+   <div class="term-detail-nav">
+     <div class="term-detail-nav-left"><button type="button" class="term-mini-btn secondary" id="backTermList">← 名詞列表</button></div>
+     <div class="term-detail-nav-right"><button type="button" class="term-mini-btn" id="editCurrentTerm">✏️ 修改</button></div>
+   </div>
+   <div class="term-title">${esc(t.title||name)}</div>
+   <div class="term-en">${esc(t.en||"")}</div>
+   <div><span class="badge">${esc(t.category||"未分類")}</span><span class="badge">掌握：${esc(t.mastery||"未設定")}</span></div>
+   ${(t.aliases||[]).length?`<div class="info-card"><h3>別名／縮寫</h3><p>${esc((t.aliases||[]).join("・"))}</p></div>`:""}
+   <div class="info-card"><h3>一句話解釋</h3><p>${esc(t.short||"尚未填寫")}</p></div>
+   <div class="info-card"><h3>白話理解</h3><p>${esc(t.detail||"尚未填寫")}</p></div>
+   <div class="info-card"><h3>閱讀時注意</h3><p>${esc(t.caution||"尚未填寫")}</p></div>
+   <div class="info-card"><h3>相關概念</h3><p>${esc((t.related||[]).join("・")||"尚未填寫")}</p></div>`;
+ document.getElementById("backTermList").onclick=()=>renderTermList(termListState.filter,true);
+ document.getElementById("editCurrentTerm").onclick=()=>openTermModal("edit",name);
  openTerms();
+ document.getElementById("rightbar").scrollTop=0;
 }
+
+function updateTermDuplicateWarning(){
+ const name=document.getElementById("termNameInput")?.value||"";
+ const title=document.getElementById("termTitleInput")?.value||"";
+ const aliases=parseTermListInput(document.getElementById("termAliasesInput")?.value||"");
+ duplicateTermKey=findDuplicateTerm(name,title,aliases,termEditorMode==="edit"?editingTermKey:null);
+ const box=document.getElementById("termDuplicateWarning");
+ const text=document.getElementById("termDuplicateText");
+ if(duplicateTermKey){
+   const t=terms[duplicateTermKey];
+   text.textContent=`可能已存在：「${t?.title||duplicateTermKey}」。為避免重複，請先查看或修改既有名詞。`;
+   box.classList.add("show");
+ }else{
+   text.textContent="";box.classList.remove("show");
+ }
+ return duplicateTermKey;
+}
+function fillTermForm(key){
+ const t=terms[key]; if(!t)return;
+ document.getElementById("termNameInput").value=key;
+ document.getElementById("termTitleInput").value=t.title||key;
+ document.getElementById("termEnglishInput").value=t.en||"";
+ document.getElementById("termAliasesInput").value=(t.aliases||[]).join("、");
+ document.getElementById("termCategoryInput").value=t.category||"";
+ document.getElementById("termMasteryInput").value=t.mastery||"模糊";
+ document.getElementById("termShortInput").value=t.short||"";
+ document.getElementById("termDetailInput").value=t.detail||"";
+ document.getElementById("termCautionInput").value=t.caution||"";
+ document.getElementById("termRelatedInput").value=(t.related||[]).join("、");
+}
+function clearTermForm(){
+ ["termNameInput","termTitleInput","termEnglishInput","termAliasesInput","termCategoryInput","termShortInput","termDetailInput","termCautionInput","termRelatedInput"].forEach(id=>document.getElementById(id).value="");
+ document.getElementById("termMasteryInput").value="模糊";
+}
+function openTermModal(mode="new",key=null,selectionText=""){
+ termEditorMode=mode; editingTermKey=mode==="edit"?key:null; duplicateTermKey=null;
+ pendingTermSelectionText=selectionText||"";
+ const modal=document.getElementById("termModal");
+ const del=document.getElementById("deleteTerm");
+ const preview=document.getElementById("termSelectionPreview");
+ if(mode==="edit" && key && terms[key]){
+   document.getElementById("termModalTitle").textContent="✏️ 修改名詞";
+   fillTermForm(key); del.style.display="inline-block";
+   preview.classList.remove("show");preview.textContent="";
+ }else{
+   document.getElementById("termModalTitle").textContent="＋ 新增名詞";
+   clearTermForm(); del.style.display="none";
+   if(selectionText){
+     document.getElementById("termNameInput").value=selectionText;
+     document.getElementById("termTitleInput").value=selectionText;
+     preview.textContent=`從文章選取：「${selectionText}」`;
+     preview.classList.add("show");
+   }else{preview.classList.remove("show");preview.textContent=""}
+ }
+ updateTermDuplicateWarning();
+ hideHLToolbar(false);
+ modal.classList.add("show");modal.setAttribute("aria-hidden","false");
+ setTimeout(()=>document.getElementById("termNameInput").focus(),60);
+}
+function openTermModalFromSelection(){
+ const range=getArticleRange();
+ if(!range){toast("請先選取要新增的名詞");return}
+ const quote=range.toString().trim();
+ if(!quote){toast("請先選取要新增的名詞");return}
+ openTermModal("new",null,quote);
+}
+function closeTermModal(){
+ const modal=document.getElementById("termModal");
+ modal.classList.remove("show");modal.setAttribute("aria-hidden","true");
+ duplicateTermKey=null;pendingTermSelectionText="";
+}
+function rewriteTermReferences(oldKey,newKey=null){
+ const rewrite=html=>{
+   const div=document.createElement("div");div.innerHTML=html||"";
+   div.querySelectorAll(".finance-term[data-term]").forEach(el=>{
+     if(el.dataset.term!==oldKey)return;
+     if(newKey)el.dataset.term=newKey;
+     else{const parent=el.parentNode;el.replaceWith(...el.childNodes);parent?.normalize?.()}
+   });
+   return div.innerHTML;
+ };
+ articles=articles.map(a=>{
+   const copy={...a};
+   if(copy.bodyHtml)copy.bodyHtml=rewrite(copy.bodyHtml);
+   if(Array.isArray(copy.body))copy.body=copy.body.map(x=>rewrite(x));
+   const storageKey=key("body",copy.id);
+   const saved=localStorage.getItem(storageKey);
+   if(saved!==null)localStorage.setItem(storageKey,rewrite(saved));
+   return copy;
+ });
+ saveArticles();
+ if(document.getElementById("articleBody"))document.getElementById("articleBody").innerHTML=rewrite(document.getElementById("articleBody").innerHTML);
+ bindTerms();
+}
+function saveTermFromModal(){
+ const name=document.getElementById("termNameInput").value.trim();
+ const title=document.getElementById("termTitleInput").value.trim()||name;
+ const en=document.getElementById("termEnglishInput").value.trim();
+ const aliases=parseTermListInput(document.getElementById("termAliasesInput").value);
+ const category=document.getElementById("termCategoryInput").value.trim()||"未分類";
+ const mastery=document.getElementById("termMasteryInput").value||"模糊";
+ const short=document.getElementById("termShortInput").value.trim();
+ const detail=document.getElementById("termDetailInput").value.trim();
+ const caution=document.getElementById("termCautionInput").value.trim();
+ const related=parseTermListInput(document.getElementById("termRelatedInput").value);
+ if(!name){toast("請輸入名詞名稱");return}
+ const duplicate=findDuplicateTerm(name,title,aliases,termEditorMode==="edit"?editingTermKey:null);
+ if(duplicate){duplicateTermKey=duplicate;updateTermDuplicateWarning();toast("這個名詞可能已存在");return}
+ const data={title,en,aliases,category,mastery,short,detail,caution,related,updatedAt:Date.now()};
+ if(termEditorMode==="edit" && editingTermKey){
+   const oldKey=editingTermKey;
+   const old=terms[oldKey]||{};
+   data.createdAt=old.createdAt||Date.now();
+   if(name!==oldKey){delete terms[oldKey];terms[name]=data;rewriteTermReferences(oldKey,name)}
+   else terms[name]=data;
+   saveTerms();closeTermModal();showTerm(name);toast("名詞已更新");
+ }else{
+   data.createdAt=Date.now();terms[name]=data;saveTerms();closeTermModal();showTerm(name);toast("名詞已新增");
+ }
+}
+function deleteCurrentTerm(){
+ if(termEditorMode!=="edit" || !editingTermKey || !terms[editingTermKey])return;
+ const label=terms[editingTermKey].title||editingTermKey;
+ if(!confirm(`確定刪除「${label}」嗎？文章中的文字會保留，但名詞標記會轉回一般文字。`))return;
+ delete terms[editingTermKey];saveTerms();rewriteTermReferences(editingTermKey,null);closeTermModal();termListState.scrollTop=0;renderTermList(termListState.filter,false);toast("名詞已刪除");
+}
+
 function saveBody(){
  localStorage.setItem(key("body",currentId),document.getElementById("articleBody").innerHTML);
  bindTerms();
@@ -1355,6 +1749,16 @@ document.getElementById("cancelAnnotation").onclick=closeAnnotationModal;
 document.getElementById("deleteAnnotation").onclick=()=>{if(confirm("要刪除這則文字註解嗎？"))deleteCurrentAnnotation()};
 document.getElementById("annotationModal").addEventListener("click",e=>{if(e.target.id==="annotationModal")closeAnnotationModal()});
 
+document.getElementById("addTerm").addEventListener("pointerdown",e=>e.preventDefault());
+document.getElementById("addTerm").onclick=openTermModalFromSelection;
+["termNameInput","termTitleInput","termAliasesInput"].forEach(id=>document.getElementById(id).addEventListener("input",updateTermDuplicateWarning));
+document.getElementById("saveTerm").onclick=saveTermFromModal;
+document.getElementById("cancelTerm").onclick=closeTermModal;
+document.getElementById("deleteTerm").onclick=deleteCurrentTerm;
+document.getElementById("termModal").addEventListener("click",e=>{if(e.target.id==="termModal")closeTermModal()});
+document.getElementById("viewDuplicateTerm").onclick=()=>{if(!duplicateTermKey)return;const k=duplicateTermKey;closeTermModal();showTerm(k)};
+document.getElementById("editDuplicateTerm").onclick=()=>{if(!duplicateTermKey)return;const k=duplicateTermKey;openTermModal("edit",k)};
+
 document.getElementById("removeHL").addEventListener("pointerdown",e=>e.preventDefault());
 document.getElementById("removeHL").onclick=()=>{
  if(activeMark && activeMark.isConnected){
@@ -1429,14 +1833,11 @@ document.getElementById("search").addEventListener("input",e=>renderList(e.targe
 document.getElementById("showTerms").onclick=()=>{
  const rb=document.getElementById("rightbar");
  if(rb.classList.contains("open")){closeTerms();return;}
- document.getElementById("termPanel").innerHTML=
-   `<div class="term-title">名詞快速查</div>`+
-   Object.keys(terms).map(k=>`<div class="info-card" style="cursor:pointer" onclick="showTerm('${k}')"><h3>${terms[k].title}</h3><p>${terms[k].short}</p></div>`).join("");
- openTerms();
+ renderTermList(termListState.filter,true);
 };
 document.getElementById("closeTerms").onclick=closeTerms;
 document.getElementById("drawerBackdrop").onclick=closeTerms;
-document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeTerms();closeAnnotationModal();closeArticleModal();hideHLToolbar(true);}});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeTerms();closeAnnotationModal();closeArticleModal();closeTermModal();hideHLToolbar(true);}});
 
 const mobileSel=document.getElementById("mobileArticleSelect");
 if(mobileSel){
