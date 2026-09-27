@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>財經閱讀系統 v1.8</title>
+<title>財經閱讀系統 v1.9</title>
 <style>
 :root{
   --bg:#f6f7fb; --panel:#fff; --line:#e5e7eb; --text:#111827; --muted:#6b7280;
@@ -342,6 +342,10 @@ mark.user-hl{padding:0 .05em;border-radius:.18em}
       <div class="article-field"><label for="articleSourceUrlInput">來源網址（可留空）</label><input id="articleSourceUrlInput" inputmode="url" placeholder="https://…" /></div>
       <button type="button" class="url-fetch-btn" id="fetchArticleUrl">讀取網址</button>
     </div>
+    <div class="article-field" style="margin-top:10px">
+      <label for="articlePublishedInput">發布時間（可留空）</label>
+      <input id="articlePublishedInput" type="datetime-local" />
+    </div>
     <div class="import-status" id="articleImportStatus"></div>
 
     <div class="article-field"><label for="articleTitleInput">文章標題</label><input id="articleTitleInput" placeholder="輸入文章標題" /></div>
@@ -480,6 +484,10 @@ function renderArticle(){
  document.getElementById("title").textContent=a.title;
  const meta=document.getElementById("meta");
  meta.innerHTML=`<span>${esc(a.type||"文章")}</span><span>•</span><span>${esc(a.topic||"未分類")}</span>`;
+ if(a.publishedAt){
+   const dot=document.createElement("span");dot.textContent="•";meta.appendChild(dot);
+   const d=document.createElement("span");d.textContent=formatPublishedAt(a.publishedAt);meta.appendChild(d);
+ }
  if(a.sourceUrl && /^https?:\/\//i.test(a.sourceUrl)){
    const dot=document.createElement("span");dot.textContent="•";meta.appendChild(dot);
    const link=document.createElement("a");link.className="source-link";link.href=a.sourceUrl;link.target="_blank";link.rel="noopener noreferrer";link.textContent="來源 ↗";meta.appendChild(link);
@@ -600,8 +608,35 @@ function looksLikeBlockedArticlePage(text,title=""){
 function parseReaderMarkdown(raw){
  const source=String(raw||"").replace(/\r/g,"");
  const titleMatch=source.match(/^Title:\s*(.+)$/mi);
- const title=titleMatch?titleMatch[1].trim():"";
- return {title,text:cleanReaderImportedText(markdownToPlainText(source))};
+ const urlMatch=source.match(/^URL Source:\s*(.+)$/mi);
+ const publishedMatch=source.match(/^Published Time:\s*(.+)$/mi);
+ return {
+   title:titleMatch?titleMatch[1].trim():"",
+   sourceUrl:urlMatch?urlMatch[1].trim():"",
+   publishedAt:publishedMatch?publishedMatch[1].trim():"",
+   text:cleanReaderImportedText(markdownToPlainText(source))
+ };
+}
+
+function toDatetimeLocal(value){
+ if(!value)return "";
+ const d=new Date(value);
+ if(Number.isNaN(d.getTime()))return "";
+ const pad=n=>String(n).padStart(2,"0");
+ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function datetimeLocalToIso(value){
+ if(!value)return "";
+ const d=new Date(value);
+ return Number.isNaN(d.getTime())?value:d.toISOString();
+}
+function formatPublishedAt(value){
+ if(!value)return "";
+ const d=new Date(value);
+ if(Number.isNaN(d.getTime()))return String(value);
+ try{
+   return new Intl.DateTimeFormat("zh-TW",{year:"numeric",month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}).format(d);
+ }catch(e){return String(value)}
 }
 
 function markdownToPlainText(md){
@@ -617,13 +652,22 @@ function markdownToPlainText(md){
 function extractHtmlArticle(html){
  const doc=new DOMParser().parseFromString(String(html||""),"text/html");
  const title=(doc.querySelector('meta[property="og:title"]')?.content||doc.title||"").trim();
+ const publishedAt=(
+   doc.querySelector('meta[property="article:published_time"]')?.content ||
+   doc.querySelector('meta[name="date"]')?.content ||
+   doc.querySelector('meta[name="pubdate"]')?.content ||
+   doc.querySelector('[itemprop="datePublished"]')?.getAttribute("content") ||
+   doc.querySelector('time[datetime]')?.getAttribute("datetime") ||
+   ""
+ ).trim();
  const root=(doc.querySelector("article")||doc.querySelector("main")||doc.body)?.cloneNode(true);
- if(!root)return {title,text:""};
+ if(!root)return {title,text:"",publishedAt};
  root.querySelectorAll("script,style,noscript,svg,nav,footer,header,aside,form,button").forEach(el=>el.remove());
  root.querySelectorAll("br").forEach(br=>br.replaceWith("\n"));
  root.querySelectorAll("p,h1,h2,h3,h4,h5,h6,li,blockquote,section,div").forEach(el=>el.append("\n\n"));
- return {title,text:normalizeImportedText(root.textContent||"")};
+ return {title,text:normalizeImportedText(root.textContent||""),publishedAt};
 }
+
 function safeHttpUrl(value){
  try{const u=new URL(String(value||"").trim());return /^https?:$/.test(u.protocol)?u.toString():""}catch(e){return ""}
 }
@@ -655,7 +699,7 @@ async function fetchArticleFromUrl(){
  setImportStatus("正在讀取文章網址…");
 
  try{
-   let title="",text="",usedReader=false,directProblem="";
+   let title="",text="",publishedAt="",usedReader=false,directProblem="";
 
    // 第一步：直接讀取原網址
    try{
@@ -665,7 +709,7 @@ async function fetchArticleFromUrl(){
      const raw=await r.text();
 
      if(ct.includes("html")||/<html[\s>]/i.test(raw)){
-       ({title,text}=extractHtmlArticle(raw));
+       ({title,text,publishedAt}=extractHtmlArticle(raw));
      }else{
        text=cleanReaderImportedText(raw);
      }
@@ -688,6 +732,8 @@ async function fetchArticleFromUrl(){
      const parsed=parseReaderMarkdown(raw);
      title=parsed.title||title;
      text=parsed.text;
+     publishedAt=parsed.publishedAt||publishedAt;
+     if(parsed.sourceUrl && safeHttpUrl(parsed.sourceUrl))input.value=safeHttpUrl(parsed.sourceUrl);
 
      if(!text || text.length<20)throw new Error("閱讀器也沒有取得足夠正文");
      if(looksLikeBlockedArticlePage(text,title))throw new Error("取得的仍是網站阻擋頁");
@@ -703,6 +749,7 @@ async function fetchArticleFromUrl(){
    }
 
    document.getElementById("articleContentInput").value=text;
+   if(publishedAt)document.getElementById("articlePublishedInput").value=toDatetimeLocal(publishedAt);
 
    // 網址擷取的新文章預設視為新聞；使用者仍可自行修改。
    if(articleEditorMode==="new" && document.getElementById("articleTypeInput").value.trim()==="筆記"){
@@ -866,6 +913,7 @@ function openArticleModal(mode="new"){
    topicManualEdited=true;
    setTopicAutoHint("目前保留原主題；若要重新分析，按「✨ 自動判斷」。",false);
    document.getElementById("articleSourceUrlInput").value=a.sourceUrl||"";
+    document.getElementById("articlePublishedInput").value=toDatetimeLocal(a.publishedAt||"");
    setImportStatus("");document.getElementById("iphoneShareHelp").classList.remove("show");
    const saved=localStorage.getItem(key("body",a.id));
    const base=a.bodyHtml || (Array.isArray(a.body)?a.body.map(p=>`<p>${p}</p>`).join(""):"");
@@ -896,12 +944,13 @@ function saveArticleFromModal(){
  let topic=document.getElementById("articleTopicInput").value.trim();
  if(!topic){const autoTopics=inferArticleTopics(title,document.getElementById("articleContentInput").value);topic=autoTopics.join("・")||"未分類";}
  const sourceUrl=safeHttpUrl(document.getElementById("articleSourceUrlInput").value)||"";
+ const publishedAt=datetimeLocalToIso(document.getElementById("articlePublishedInput").value);
  const content=document.getElementById("articleContentInput").value.trim();
  if(!title){toast("請輸入文章標題");return}
  if(!content){toast("請輸入文章內容");return}
  if(articleEditorMode==="new"){
    const id=makeArticleId();
-   articles.unshift({id,title,type,topic,sourceUrl,bodyHtml:plainTextToHtml(content),createdAt:Date.now()});
+   articles.unshift({id,title,type,topic,sourceUrl,publishedAt,bodyHtml:plainTextToHtml(content),createdAt:Date.now()});
    saveArticles(); currentId=id; localStorage.setItem("fin-current",currentId);
    closeArticleModal();renderList();renderMobileArticleSelect();renderArticle();toast("文章已新增");
    return;
@@ -919,7 +968,7 @@ function saveArticleFromModal(){
    localStorage.setItem(key("body",a.id),plainTextToHtml(content));
    localStorage.removeItem(key("annotations",a.id));
  }
- articles[i]={...a,title,type,topic,sourceUrl,bodyHtml:contentChanged?plainTextToHtml(content):(a.bodyHtml||undefined),updatedAt:Date.now()};
+ articles[i]={...a,title,type,topic,sourceUrl,publishedAt,bodyHtml:contentChanged?plainTextToHtml(content):(a.bodyHtml||undefined),updatedAt:Date.now()};
  saveArticles();closeArticleModal();renderList();renderMobileArticleSelect();renderArticle();toast("文章已更新");
 }
 function deleteCurrentArticle(){
