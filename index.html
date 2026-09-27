@@ -3,15 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>財經閱讀系統 v2.5</title>
-<meta name="theme-color" content="#f6f7fb" />
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="default" />
-<meta name="apple-mobile-web-app-title" content="kyc財經" />
-<link rel="icon" type="image/png" href="kyc-logo.png" />
-<link rel="shortcut icon" href="kyc-logo.png" />
-<link rel="apple-touch-icon" href="kyc-logo.png" />
+<title>財經閱讀系統 v2.5 · Tool Center</title>
 <style>
 :root{
   --bg:#f6f7fb; --panel:#fff; --line:#e5e7eb; --text:#111827; --muted:#6b7280;
@@ -286,11 +278,27 @@ mark.user-hl{padding:0 .05em;border-radius:.18em}
   .article-form-grid{grid-template-columns:1fr}
   .selection-hint{font-size:12px}
 }
+
+/* KYC TOOL CENTER v1.1 */
+.home-toolbtn{
+  flex:0 0 auto;
+  border-color:#cbd5e1;
+  background:#f8fafc;
+  font-weight:800;
+  white-space:nowrap;
+}
+.home-toolbtn:hover{background:#eef2f7}
+@media(max-width:720px){
+  .home-toolbtn{padding:9px 10px}
+  .home-toolbtn .home-label{display:none}
+}
+
 </style>
 </head>
 <body>
 <div class="app">
 <header>
+  <button class="toolbtn home-toolbtn" type="button" onclick="goToolCenter()" aria-label="返回工具中心">⌂ <span class="home-label">工具中心</span></button>
   <div class="brand"><span>📈</span><span>財經閱讀系統</span></div>
   <div class="search"><input id="search" placeholder="搜尋文章、名詞…" /></div>
   <button class="toolbtn article-manage-btn" id="newArticle">＋ 文章</button>
@@ -496,6 +504,21 @@ mark.user-hl{padding:0 .05em;border-radius:.18em}
 </div>
 </noscript>
 <script>
+
+function goToolCenter(){
+  let home='';
+  try{home=localStorage.getItem('kyc_tool_center_home_v1')||'';}catch(e){}
+  if(home){
+    location.href=home;
+    return;
+  }
+  if(location.protocol==='http:' || location.protocol==='https:'){
+    location.href=location.origin + '/kyc-tools/';
+    return;
+  }
+  alert('尚未找到工具中心網址。請先從 KYC 工具中心開啟一次，再回到本系統。');
+}
+
 const defaultTerms = {
   "CPI":{
     title:"消費者物價指數（CPI）", en:"Consumer Price Index",
@@ -1005,9 +1028,7 @@ async function fetchArticleFromUrl(){
    if(title && !looksLikeBlockedArticlePage("",title) &&
       !document.getElementById("articleTitleInput").value.trim()){
      document.getElementById("articleTitleInput").value=title;
-   }
-
-   document.getElementById("articleContentInput").value=text;
+   }document.getElementById("articleContentInput").value=text;
    if(publishedAt)document.getElementById("articlePublishedInput").value=toDatetimeLocal(publishedAt);
 
    // 網址擷取的新文章預設視為新聞；使用者仍可自行修改。
