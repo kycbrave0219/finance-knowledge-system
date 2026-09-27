@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>財經閱讀系統 v1</title>
+<title>財經閱讀系統 v1.2</title>
 <style>
 :root{
   --bg:#f6f7fb; --panel:#fff; --line:#e5e7eb; --text:#111827; --muted:#6b7280;
@@ -42,17 +42,37 @@ header{
 }
 .meta{font-size:13px;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap}
 h1{font-size:27px;line-height:1.35;margin:9px 0 14px}
-.toolbar{
-  position:sticky;top:74px;z-index:10;display:flex;align-items:center;gap:8px;flex-wrap:wrap;
-  padding:10px;background:rgba(255,255,255,.96);backdrop-filter:blur(8px);
-  border:1px solid var(--line);border-radius:14px;margin:18px 0
-}
 .toolbtn{
   border:1px solid var(--line);background:#fff;border-radius:10px;padding:8px 11px;cursor:pointer;
   display:flex;align-items:center;gap:7px;font-size:13px;font-weight:650
 }
 .toolbtn:hover{background:#f8fafc}
-.swatch{width:16px;height:16px;border-radius:5px;border:1px solid rgba(0,0,0,.08)}
+.selection-hint{
+  margin:14px 0 8px;padding:10px 12px;border:1px dashed #cbd5e1;border-radius:12px;
+  background:#f8fafc;color:#64748b;font-size:13px;line-height:1.6
+}
+.selection-toolbar{
+  position:fixed;left:50%;bottom:calc(14px + env(safe-area-inset-bottom));z-index:90;
+  width:min(720px,calc(100vw - 24px));display:flex;align-items:center;gap:8px;
+  padding:9px;background:rgba(255,255,255,.97);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border:1px solid #dbe2ea;border-radius:16px;box-shadow:0 14px 40px rgba(15,23,42,.22);
+  opacity:0;pointer-events:none;transform:translate(-50%,24px) scale(.98);transition:.16s ease
+}
+.selection-toolbar.show{opacity:1;pointer-events:auto;transform:translate(-50%,0) scale(1)}
+.color-palette{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;flex:1;padding:1px}
+.color-palette::-webkit-scrollbar{display:none}
+.color-btn{
+  width:34px;height:34px;min-width:34px;border:1px solid rgba(15,23,42,.12);border-radius:10px;
+  padding:0;box-shadow:inset 0 0 0 2px rgba(255,255,255,.45);cursor:pointer
+}
+.color-btn:active{transform:scale(.93)}
+.selection-action{
+  flex:0 0 auto;border:1px solid var(--line);background:#fff;border-radius:10px;height:34px;padding:0 10px;
+  font-size:13px;font-weight:750;color:#334155;white-space:nowrap
+}
+.selection-action.danger{color:#b91c1c;background:#fff7f7}
+.note-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+.clear-all-btn{border:0;background:#f3f4f6;color:#64748b;border-radius:9px;padding:7px 9px;font-size:12px;font-weight:700}
 .article-body{font-size:18px;line-height:1.95;color:#1f2937;outline:none}
 .article-body p{margin:1em 0}
 .finance-term{
@@ -64,6 +84,10 @@ mark.hl-yellow{background:#fff2a8}
 mark.hl-green{background:#cef7d2}
 mark.hl-blue{background:#d9ecff}
 mark.hl-pink{background:#ffd9e8}
+mark.hl-orange{background:#ffe0b2}
+mark.hl-purple{background:#eadcff}
+mark.hl-cyan{background:#cffafe}
+mark.hl-gray{background:#e5e7eb}
 mark.user-hl{padding:0 .05em;border-radius:.18em}
 .note-box{
   margin-top:24px;border-top:1px solid var(--line);padding-top:20px
@@ -103,7 +127,7 @@ mark.user-hl{padding:0 .05em;border-radius:.18em}
   .paper{padding:20px 18px;border-radius:14px}
   h1{font-size:23px}
   .article-body{font-size:17px;line-height:1.85}
-  .toolbar{top:70px}
+  .selection-hint{font-size:12px}
 }
 </style>
 </head>
@@ -135,14 +159,7 @@ mark.user-hl{padding:0 .05em;border-radius:.18em}
       <div class="meta" id="meta"><span>筆記</span><span>•</span><span>總體經濟・債券</span></div>
       <h1 id="title">示範｜CPI、利率與債券殖利率怎麼串起來？</h1>
 
-      <div class="toolbar">
-        <button class="toolbtn hl" data-color="yellow"><span class="swatch" style="background:#fff2a8"></span>黃色</button>
-        <button class="toolbtn hl" data-color="green"><span class="swatch" style="background:#cef7d2"></span>綠色</button>
-        <button class="toolbtn hl" data-color="blue"><span class="swatch" style="background:#d9ecff"></span>藍色</button>
-        <button class="toolbtn hl" data-color="pink"><span class="swatch" style="background:#ffd9e8"></span>粉紅</button>
-        <button class="toolbtn" id="removeHL">⌫ 取消標記</button>
-        <button class="toolbtn" id="clearHL">🧹 清除本篇</button>
-      </div>
+      <div class="selection-hint">💡 選取文字後才會出現螢光筆工具列；點一下已標記文字，也可以改色或取消標記。</div>
 
       <div id="articleBody" class="article-body">
         <p>當市場看到 <span class="finance-term" data-term="CPI">CPI</span> 等通膨數據高於預期時，常會重新評估未來的 <span class="finance-term" data-term="利率">利率</span> 路徑。</p>
@@ -151,7 +168,7 @@ mark.user-hl{padding:0 .05em;border-radius:.18em}
       </div>
 
       <div class="note-box">
-        <div style="font-weight:750;margin-bottom:8px">📝 我的註記</div>
+        <div class="note-head"><div style="font-weight:750">📝 我的註記</div><button class="clear-all-btn" id="clearHL">🧹 清除本篇標記</button></div>
         <textarea id="note" placeholder="輸入自己的理解、疑問或待查資料…"></textarea>
       </div>
     </article>
@@ -163,6 +180,20 @@ mark.user-hl{padding:0 .05em;border-radius:.18em}
   </aside>
   <div class="drawer-backdrop" id="drawerBackdrop"></div>
 </div>
+</div>
+<div class="selection-toolbar" id="selectionToolbar" aria-hidden="true">
+  <div class="color-palette" aria-label="螢光筆顏色">
+    <button class="color-btn hl" data-color="yellow" aria-label="黃色" title="黃色" style="background:#fff2a8"></button>
+    <button class="color-btn hl" data-color="green" aria-label="綠色" title="綠色" style="background:#cef7d2"></button>
+    <button class="color-btn hl" data-color="blue" aria-label="藍色" title="藍色" style="background:#d9ecff"></button>
+    <button class="color-btn hl" data-color="pink" aria-label="粉紅" title="粉紅" style="background:#ffd9e8"></button>
+    <button class="color-btn hl" data-color="orange" aria-label="橘色" title="橘色" style="background:#ffe0b2"></button>
+    <button class="color-btn hl" data-color="purple" aria-label="紫色" title="紫色" style="background:#eadcff"></button>
+    <button class="color-btn hl" data-color="cyan" aria-label="青色" title="青色" style="background:#cffafe"></button>
+    <button class="color-btn hl" data-color="gray" aria-label="灰色" title="灰色" style="background:#e5e7eb"></button>
+  </div>
+  <button class="selection-action danger" id="removeHL">取消標記</button>
+  <button class="selection-action" id="closeHLToolbar" aria-label="關閉">×</button>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -239,7 +270,8 @@ function renderList(filter=""){
  });
 }
 function renderArticle(){
- savedRange=null;
+ savedRange=null;activeMark=null;
+ if(typeof hideHLToolbar==="function")hideHLToolbar();
  const a=articles.find(x=>x.id===currentId)||articles[0];
  document.getElementById("title").textContent=a.title;
  document.getElementById("meta").innerHTML=`<span>${a.type}</span><span>•</span><span>${a.topic}</span>`;
@@ -255,12 +287,32 @@ function bindTerms(){
  });
 }
 let savedRange=null;
+let activeMark=null;
+let toolbarInteraction=false;
+const selectionToolbar=document.getElementById("selectionToolbar");
+const articleBodyEl=document.getElementById("articleBody");
+
+function showHLToolbar(){
+ selectionToolbar.classList.add("show");
+ selectionToolbar.setAttribute("aria-hidden","false");
+}
+function hideHLToolbar(clearState=false){
+ selectionToolbar.classList.remove("show");
+ selectionToolbar.setAttribute("aria-hidden","true");
+ if(clearState){activeMark=null;savedRange=null;}
+}
 function captureArticleSelection(){
  const sel=window.getSelection();
- if(!sel || sel.rangeCount===0 || sel.isCollapsed)return;
+ if(!sel || sel.rangeCount===0 || sel.isCollapsed)return false;
  const range=sel.getRangeAt(0);
  const body=document.getElementById("articleBody");
- if(body.contains(range.commonAncestorContainer)) savedRange=range.cloneRange();
+ if(body.contains(range.commonAncestorContainer)){
+   savedRange=range.cloneRange();
+   activeMark=null;
+   showHLToolbar();
+   return true;
+ }
+ return false;
 }
 function getArticleRange(){
  const sel=window.getSelection();
@@ -283,8 +335,13 @@ function closeTerms(){
  document.getElementById("rightbar").classList.remove("open");
  document.getElementById("drawerBackdrop").classList.remove("open");
 }
+
 document.addEventListener("selectionchange",()=>{
- setTimeout(captureArticleSelection,0);
+ setTimeout(()=>{
+   if(captureArticleSelection())return;
+   const sel=window.getSelection();
+   if(!toolbarInteraction && !activeMark && (!sel || sel.isCollapsed)) hideHLToolbar();
+ },0);
 });
 
 function showTerm(name){
@@ -303,43 +360,91 @@ function saveBody(){
  localStorage.setItem(key("body",currentId),document.getElementById("articleBody").innerHTML);
  bindTerms();
 }
+function unwrapMark(mark){
+ if(!mark || !mark.isConnected)return false;
+ const parent=mark.parentNode;
+ mark.replaceWith(...mark.childNodes);
+ parent?.normalize?.();
+ return true;
+}
+function marksIntersecting(range){
+ return [...document.querySelectorAll("#articleBody mark.user-hl")].filter(m=>{
+   try{return range.intersectsNode(m)}catch(e){return false}
+ });
+}
+function finishHLAction(message){
+ window.getSelection()?.removeAllRanges();
+ activeMark=null;savedRange=null;
+ hideHLToolbar();
+ saveBody();
+ if(message)toast(message);
+}
 function highlight(color){
+ if(activeMark && activeMark.isConnected){
+   activeMark.className=`user-hl hl-${color}`;
+   finishHLAction("已變更標記顏色");
+   return;
+ }
  const range=getArticleRange();
  if(!range){toast("請先選取文章文字");return;}
- const sel=window.getSelection();
  try{
    const mark=document.createElement("mark");
    mark.className=`user-hl hl-${color}`;
    range.surroundContents(mark);
-   sel?.removeAllRanges(); savedRange=null; saveBody(); toast("已標記重點");
+   finishHLAction("已標記重點");
  }catch(e){
    try{
      const frag=range.extractContents();
      const mark=document.createElement("mark");
      mark.className=`user-hl hl-${color}`;
      mark.appendChild(frag); range.insertNode(mark);
-     sel?.removeAllRanges(); savedRange=null; saveBody(); toast("已標記重點");
+     finishHLAction("已標記重點");
    }catch(err){
      toast("這段文字跨到特殊標記，請縮小選取範圍再試");
    }
  }
 }
-document.querySelectorAll(".hl").forEach(b=>b.onclick=()=>highlight(b.dataset.color));
 
+selectionToolbar.addEventListener("pointerdown",()=>{toolbarInteraction=true});
+selectionToolbar.addEventListener("pointerup",()=>setTimeout(()=>{toolbarInteraction=false},0));
+selectionToolbar.addEventListener("touchstart",e=>{toolbarInteraction=true},{passive:true});
+selectionToolbar.addEventListener("touchend",()=>setTimeout(()=>{toolbarInteraction=false},0),{passive:true});
+document.querySelectorAll(".hl").forEach(b=>{
+ b.addEventListener("pointerdown",e=>e.preventDefault());
+ b.addEventListener("click",()=>highlight(b.dataset.color));
+});
+
+document.getElementById("removeHL").addEventListener("pointerdown",e=>e.preventDefault());
 document.getElementById("removeHL").onclick=()=>{
- const sel=window.getSelection();
- if(!sel || sel.rangeCount===0){toast("請先點選或選取標記文字");return;}
- let n=sel.anchorNode;
- if(n && n.nodeType===3)n=n.parentElement;
- const mark=n?.closest?.("mark.user-hl");
- if(!mark){toast("目前位置不是螢光標記");return;}
- mark.replaceWith(...mark.childNodes); saveBody(); toast("已取消標記");
+ if(activeMark && activeMark.isConnected){
+   unwrapMark(activeMark);
+   finishHLAction("已取消標記");
+   return;
+ }
+ const range=getArticleRange();
+ if(!range){toast("請先選取已標記文字，或直接點一下標記");return;}
+ const marks=marksIntersecting(range);
+ if(!marks.length){toast("選取範圍沒有螢光標記");return;}
+ marks.forEach(unwrapMark);
+ finishHLAction("已取消選取範圍的標記");
 };
+document.getElementById("closeHLToolbar").onclick=()=>hideHLToolbar(true);
 document.getElementById("clearHL").onclick=()=>{
  if(!confirm("要清除本篇所有螢光標記嗎？"))return;
- document.querySelectorAll("#articleBody mark.user-hl").forEach(m=>m.replaceWith(...m.childNodes));
- saveBody(); toast("已清除本篇標記");
+ document.querySelectorAll("#articleBody mark.user-hl").forEach(unwrapMark);
+ hideHLToolbar(true); saveBody(); toast("已清除本篇標記");
 };
+
+articleBodyEl.addEventListener("click",e=>{
+ const mark=e.target.closest?.("mark.user-hl");
+ if(!mark)return;
+ activeMark=mark;
+ const r=document.createRange();r.selectNodeContents(mark);savedRange=r;
+ showHLToolbar();
+});
+articleBodyEl.addEventListener("mouseup",()=>setTimeout(captureArticleSelection,0));
+articleBodyEl.addEventListener("touchend",()=>setTimeout(captureArticleSelection,80));
+
 document.getElementById("note").addEventListener("input",e=>{
  localStorage.setItem(key("note",currentId),e.target.value);
 });
@@ -366,9 +471,6 @@ if(mobileSel){
   });
 }
 renderList();renderArticle();
-const articleBodyEl=document.getElementById("articleBody");
-articleBodyEl.addEventListener("mouseup",captureArticleSelection);
-articleBodyEl.addEventListener("touchend",()=>setTimeout(captureArticleSelection,50));
 </script>
 </body>
 </html>
