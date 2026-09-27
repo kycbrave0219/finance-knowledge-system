@@ -25,6 +25,8 @@ header{
 .sidebar,.rightbar{background:#fff}
 .sidebar{border-right:1px solid var(--line);padding:14px}
 .rightbar{border-left:1px solid var(--line);padding:18px;overflow:auto}
+.drawer-close{position:sticky;top:0;float:right;z-index:2;width:42px;height:42px;border:1px solid var(--line);border-radius:999px;background:#fff;font-size:22px;line-height:1;cursor:pointer;box-shadow:0 4px 12px rgba(15,23,42,.08)}
+.drawer-backdrop{display:none}
 .section-title{font-size:12px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.08em;margin:8px 7px}
 .article-item{
   padding:11px 12px;border-radius:11px;cursor:pointer;margin-bottom:6px;border:1px solid transparent
@@ -89,6 +91,8 @@ mark.user-hl{padding:0 .05em;border-radius:.18em}
     transition:.22s;box-shadow:-12px 0 30px rgba(15,23,42,.15)
   }
   .rightbar.open{transform:translateX(0)}
+  .drawer-backdrop{position:fixed;inset:64px 0 0 0;background:rgba(15,23,42,.18);z-index:29}
+  .drawer-backdrop.open{display:block}
 }
 @media(max-width:720px){
   header{padding:0 10px}.brand span:last-child{display:none}
@@ -154,8 +158,10 @@ mark.user-hl{padding:0 .05em;border-radius:.18em}
   </main>
 
   <aside class="rightbar" id="rightbar">
+    <button class="drawer-close" id="closeTerms" aria-label="關閉名詞面板">×</button>
     <div id="termPanel" class="right-empty">點文章中的藍色財經名詞，即時查看解釋。</div>
   </aside>
+  <div class="drawer-backdrop" id="drawerBackdrop"></div>
 </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -233,6 +239,7 @@ function renderList(filter=""){
  });
 }
 function renderArticle(){
+ savedRange=null;
  const a=articles.find(x=>x.id===currentId)||articles[0];
  document.getElementById("title").textContent=a.title;
  document.getElementById("meta").innerHTML=`<span>${a.type}</span><span>•</span><span>${a.topic}</span>`;
@@ -247,6 +254,39 @@ function bindTerms(){
    el.onclick=(e)=>{e.stopPropagation();showTerm(el.dataset.term);}
  });
 }
+let savedRange=null;
+function captureArticleSelection(){
+ const sel=window.getSelection();
+ if(!sel || sel.rangeCount===0 || sel.isCollapsed)return;
+ const range=sel.getRangeAt(0);
+ const body=document.getElementById("articleBody");
+ if(body.contains(range.commonAncestorContainer)) savedRange=range.cloneRange();
+}
+function getArticleRange(){
+ const sel=window.getSelection();
+ const body=document.getElementById("articleBody");
+ if(sel && sel.rangeCount>0 && !sel.isCollapsed){
+   const range=sel.getRangeAt(0);
+   if(body.contains(range.commonAncestorContainer)){
+     savedRange=range.cloneRange();
+     return range.cloneRange();
+   }
+ }
+ if(savedRange && body.contains(savedRange.commonAncestorContainer)) return savedRange.cloneRange();
+ return null;
+}
+function openTerms(){
+ document.getElementById("rightbar").classList.add("open");
+ document.getElementById("drawerBackdrop").classList.add("open");
+}
+function closeTerms(){
+ document.getElementById("rightbar").classList.remove("open");
+ document.getElementById("drawerBackdrop").classList.remove("open");
+}
+document.addEventListener("selectionchange",()=>{
+ setTimeout(captureArticleSelection,0);
+});
+
 function showTerm(name){
  const t=terms[name]; if(!t)return;
  document.getElementById("termPanel").innerHTML=`
@@ -257,29 +297,31 @@ function showTerm(name){
    <div class="info-card"><h3>白話理解</h3><p>${t.detail}</p></div>
    <div class="info-card"><h3>閱讀時注意</h3><p>${t.caution}</p></div>
    <div class="info-card"><h3>相關概念</h3><p>${t.related.join("・")}</p></div>`;
- document.getElementById("rightbar").classList.add("open");
+ openTerms();
 }
 function saveBody(){
  localStorage.setItem(key("body",currentId),document.getElementById("articleBody").innerHTML);
  bindTerms();
 }
 function highlight(color){
+ const range=getArticleRange();
+ if(!range){toast("請先選取文章文字");return;}
  const sel=window.getSelection();
- if(!sel || sel.rangeCount===0 || sel.isCollapsed){toast("請先選取文章文字");return;}
- const range=sel.getRangeAt(0);
- const body=document.getElementById("articleBody");
- if(!body.contains(range.commonAncestorContainer)){toast("只能標記文章內容");return;}
  try{
    const mark=document.createElement("mark");
    mark.className=`user-hl hl-${color}`;
    range.surroundContents(mark);
-   sel.removeAllRanges(); saveBody(); toast("已標記重點");
+   sel?.removeAllRanges(); savedRange=null; saveBody(); toast("已標記重點");
  }catch(e){
-   const frag=range.extractContents();
-   const mark=document.createElement("mark");
-   mark.className=`user-hl hl-${color}`;
-   mark.appendChild(frag); range.insertNode(mark);
-   sel.removeAllRanges(); saveBody(); toast("已標記重點");
+   try{
+     const frag=range.extractContents();
+     const mark=document.createElement("mark");
+     mark.className=`user-hl hl-${color}`;
+     mark.appendChild(frag); range.insertNode(mark);
+     sel?.removeAllRanges(); savedRange=null; saveBody(); toast("已標記重點");
+   }catch(err){
+     toast("這段文字跨到特殊標記，請縮小選取範圍再試");
+   }
  }
 }
 document.querySelectorAll(".hl").forEach(b=>b.onclick=()=>highlight(b.dataset.color));
@@ -303,12 +345,16 @@ document.getElementById("note").addEventListener("input",e=>{
 });
 document.getElementById("search").addEventListener("input",e=>renderList(e.target.value));
 document.getElementById("showTerms").onclick=()=>{
- const rb=document.getElementById("rightbar"); rb.classList.toggle("open");
- if(!rb.classList.contains("open"))return;
+ const rb=document.getElementById("rightbar");
+ if(rb.classList.contains("open")){closeTerms();return;}
  document.getElementById("termPanel").innerHTML=
    `<div class="term-title">名詞快速查</div>`+
    Object.keys(terms).map(k=>`<div class="info-card" style="cursor:pointer" onclick="showTerm('${k}')"><h3>${terms[k].title}</h3><p>${terms[k].short}</p></div>`).join("");
+ openTerms();
 };
+document.getElementById("closeTerms").onclick=closeTerms;
+document.getElementById("drawerBackdrop").onclick=closeTerms;
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeTerms();});
 
 const mobileSel=document.getElementById("mobileArticleSelect");
 if(mobileSel){
@@ -320,6 +366,9 @@ if(mobileSel){
   });
 }
 renderList();renderArticle();
+const articleBodyEl=document.getElementById("articleBody");
+articleBodyEl.addEventListener("mouseup",captureArticleSelection);
+articleBodyEl.addEventListener("touchend",()=>setTimeout(captureArticleSelection,50));
 </script>
 </body>
 </html>
