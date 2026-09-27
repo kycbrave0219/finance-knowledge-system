@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>財經閱讀系統 v1.7</title>
+<title>財經閱讀系統 v1.8</title>
 <style>
 :root{
   --bg:#f6f7fb; --panel:#fff; --line:#e5e7eb; --text:#111827; --muted:#6b7280;
@@ -517,53 +517,84 @@ function normalizeImportedText(text){
    並移除正文開頭重複的 Image N 圖說。 */
 function cleanReaderImportedText(text){
  let v=String(text||"").replace(/\r/g,"");
- const head=v.split("\n").slice(0,24).join("\n");
- const looksLikeReader=/^Markdown Content\s*:/mi.test(head) ||
-   ((head.match(/^(?:Title|URL Source|Published Time)\s*:/gmi)||[]).length>=2);
 
- if(looksLikeReader){
-   const marker=/^Markdown Content\s*:\s*(?:\n|$)/mi;
-   const m=marker.exec(v);
-   if(m){
-     v=v.slice(m.index+m[0].length);
-   }else{
-     const lines=v.split("\n");
-     let i=0;
-     while(i<lines.length){
-       const line=lines[i].trim();
-       if(!line){i++;continue}
-       if(/^(?:Title|URL Source|Published Time)\s*:/i.test(line)){i++;continue}
-       if(/^https?:\/\//i.test(line) && i<8){i++;continue}
-       break;
+ // reader/jina 常見欄位。即使前面多了空白或其它文字，也從 Markdown Content 後開始取正文。
+ const marker=/^\s*Markdown Content\s*:\s*(?:\n|$)/mi;
+ const markerMatch=marker.exec(v);
+ if(markerMatch && markerMatch.index < Math.min(v.length,5000)){
+   v=v.slice(markerMatch.index+markerMatch[0].length);
+ }else{
+   // 沒有 Markdown Content marker 時，才嘗試清理開頭 metadata。
+   const lines=v.split("\n");
+   let i=0,metaHits=0;
+   while(i<lines.length && i<20){
+     const line=lines[i].trim();
+     if(!line){i++;continue}
+     if(/^(?:Title|URL Source|Published Time)\s*:/i.test(line)){
+       metaHits++;i++;continue;
      }
-     v=lines.slice(i).join("\n");
+     if(metaHits>0 && /^https?:\/\//i.test(line)){i++;continue}
+     break;
    }
+   if(metaHits>=2)v=lines.slice(i).join("\n");
  }
 
  v=normalizeImportedText(v);
  let lines=v.split("\n");
 
- // 只清理正文「最前面」的 Image 1 / Image 2...，不動文章中間正常圖片說明。
- let keepCleaning=true;
- while(keepCleaning){
-   keepCleaning=false;
+ // 清掉正文開頭的 Image 1 / Image 2... 圖說與緊接著的重複圖說。
+ let guard=0;
+ while(lines.length && guard++<12){
    while(lines.length && !lines[0].trim())lines.shift();
    if(!lines.length)break;
 
-   const im=lines[0].trim().match(/^Image\s*\d+\s*:\s*(.*)$/i);
-   if(im){
-     const caption=(im[1]||"").trim();
-     lines.shift();
-     while(lines.length && !lines[0].trim())lines.shift();
+   const first=lines[0].trim();
+   const im=first.match(/^Image\s*\d+\s*:\s*(.*)$/i);
+   if(!im)break;
 
-     if(caption && lines.length){
-       const norm=x=>String(x||"").replace(/\s+/g," ").replace(/[。．.]$/,"").trim();
-       if(norm(lines[0])===norm(caption))lines.shift();
-     }
-     keepCleaning=true;
+   const caption=(im[1]||"").trim();
+   lines.shift();
+   while(lines.length && !lines[0].trim())lines.shift();
+
+   if(caption && lines.length){
+     const norm=x=>String(x||"")
+       .replace(/\s+/g," ")
+       .replace(/[。．.]+$/,"")
+       .trim();
+     if(norm(lines[0])===norm(caption))lines.shift();
    }
  }
+
+ // 最後一道保險：正文開頭若仍殘留 reader 欄位，繼續移除。
+ while(lines.length){
+   const line=lines[0].trim();
+   if(!line){lines.shift();continue}
+   if(/^(?:Title|URL Source|Published Time|Markdown Content)\s*:/i.test(line)){
+     lines.shift();continue;
+   }
+   break;
+ }
+
  return normalizeImportedText(lines.join("\n"));
+}
+
+function looksLikeBlockedArticlePage(text,title=""){
+ const sample=(String(title||"")+"\n"+String(text||"")).toLowerCase();
+ const blockers=[
+   "請更新您的瀏覽器",
+   "瀏覽器版本較舊",
+   "已不再受支援",
+   "不再受支援",
+   "建議您更新瀏覽器版本",
+   "your browser is no longer supported",
+   "browser is not supported",
+   "unsupported browser",
+   "enable javascript",
+   "javascript is required",
+   "access denied",
+   "403 forbidden"
+ ];
+ return blockers.some(k=>sample.includes(k.toLowerCase()));
 }
 
 function parseReaderMarkdown(raw){
@@ -622,33 +653,75 @@ async function fetchArticleFromUrl(){
  input.value=url;
  const btn=document.getElementById("fetchArticleUrl");btn.disabled=true;btn.textContent="讀取中…";
  setImportStatus("正在讀取文章網址…");
+
  try{
-   let title="",text="";
+   let title="",text="",usedReader=false,directProblem="";
+
+   // 第一步：直接讀取原網址
    try{
      const r=await fetch(url,{method:"GET",mode:"cors",credentials:"omit"});
      if(!r.ok)throw new Error(`HTTP ${r.status}`);
      const ct=r.headers.get("content-type")||"";
      const raw=await r.text();
-     if(ct.includes("html")||/<html[\s>]/i.test(raw))({title,text}=extractHtmlArticle(raw));
-     else text=cleanReaderImportedText(raw);
+
+     if(ct.includes("html")||/<html[\s>]/i.test(raw)){
+       ({title,text}=extractHtmlArticle(raw));
+     }else{
+       text=cleanReaderImportedText(raw);
+     }
+
+     // 有些網站（尤其 LINE/LIFF）HTTP 仍回 200，但其實只回「瀏覽器不支援」殼頁。
+     if(!text || text.length<20 || looksLikeBlockedArticlePage(text,title)){
+       directProblem=looksLikeBlockedArticlePage(text,title) ? "網站回傳瀏覽器限制頁" : "原網址沒有足夠正文";
+       throw new Error(directProblem);
+     }
    }catch(directErr){
+     // 第二步：改由 reader 取得可閱讀正文
+     usedReader=true;
+     setImportStatus("原網址無法直接取得正文，正在改用閱讀器重新擷取…");
+
      const readerUrl="https://r.jina.ai/"+url;
      const r=await fetch(readerUrl,{credentials:"omit"});
      if(!r.ok)throw directErr;
+
      const raw=await r.text();
      const parsed=parseReaderMarkdown(raw);
+     title=parsed.title||title;
      text=parsed.text;
-     if(parsed.title)title=parsed.title;
+
+     if(!text || text.length<20)throw new Error("閱讀器也沒有取得足夠正文");
+     if(looksLikeBlockedArticlePage(text,title))throw new Error("取得的仍是網站阻擋頁");
    }
+
+   text=cleanReaderImportedText(text);
    if(!text || text.length<20)throw new Error("沒有擷取到足夠的文章文字");
-   if(title && !document.getElementById("articleTitleInput").value.trim())document.getElementById("articleTitleInput").value=title;
+
+   // 不讓「請更新瀏覽器」之類錯誤標題進入文章標題欄。
+   if(title && !looksLikeBlockedArticlePage("",title) &&
+      !document.getElementById("articleTitleInput").value.trim()){
+     document.getElementById("articleTitleInput").value=title;
+   }
+
    document.getElementById("articleContentInput").value=text;
-   if(!document.getElementById("articleTypeInput").value.trim())document.getElementById("articleTypeInput").value="新聞";
+
+   // 網址擷取的新文章預設視為新聞；使用者仍可自行修改。
+   if(articleEditorMode==="new" && document.getElementById("articleTypeInput").value.trim()==="筆記"){
+     document.getElementById("articleTypeInput").value="新聞";
+   }
+
    scheduleAutoTopic();
-   setImportStatus("網址內容已匯入。請先快速確認標題與正文再儲存。","ok");
+   setImportStatus(
+     usedReader
+       ? "已避開網站的瀏覽器限制頁，改用閱讀器匯入正文。請快速確認後再儲存。"
+       : "網址內容已匯入。請先快速確認標題與正文再儲存。",
+     "ok"
+   );
  }catch(e){
-   setImportStatus("這個網站目前無法自動擷取。來源網址已保留，可改用複製全文後貼上。","err");
- }finally{btn.disabled=false;btn.textContent="讀取網址"}
+   setImportStatus("這個網站目前仍無法自動取得正文。來源網址已保留，可改用複製全文後貼上。","err");
+ }finally{
+   btn.disabled=false;
+   btn.textContent="讀取網址";
+ }
 }
 async function loadPdfJs(){
  if(window.__pdfjsModule)return window.__pdfjsModule;
