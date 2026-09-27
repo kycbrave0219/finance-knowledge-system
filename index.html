@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>財經閱讀系統 v1.2</title>
+<title>財經閱讀系統 v1.3</title>
 <style>
 :root{
   --bg:#f6f7fb; --panel:#fff; --line:#e5e7eb; --text:#111827; --muted:#6b7280;
@@ -66,6 +66,18 @@ h1{font-size:27px;line-height:1.35;margin:9px 0 14px}
   padding:0;box-shadow:inset 0 0 0 2px rgba(255,255,255,.45);cursor:pointer
 }
 .color-btn:active{transform:scale(.93)}
+.more-colors{
+  position:fixed;left:50%;bottom:calc(76px + env(safe-area-inset-bottom));z-index:91;
+  width:min(430px,calc(100vw - 28px));padding:12px;background:rgba(255,255,255,.98);
+  border:1px solid #dbe2ea;border-radius:16px;box-shadow:0 14px 40px rgba(15,23,42,.22);
+  transform:translateX(-50%);display:none
+}
+.more-colors.show{display:block}
+.more-colors-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:9px}
+.more-color-cell{display:flex;align-items:center;justify-content:center}
+.more-colors .color-btn{width:38px;height:38px;min-width:38px}
+.custom-color-wrap{margin-top:10px;padding-top:10px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px;color:#475569;font-size:13px;font-weight:700}
+.custom-color-input{width:46px;height:34px;border:0;background:transparent;padding:0}
 .selection-action{
   flex:0 0 auto;border:1px solid var(--line);background:#fff;border-radius:10px;height:34px;padding:0 10px;
   font-size:13px;font-weight:750;color:#334155;white-space:nowrap
@@ -89,6 +101,34 @@ mark.hl-purple{background:#eadcff}
 mark.hl-cyan{background:#cffafe}
 mark.hl-gray{background:#e5e7eb}
 mark.user-hl{padding:0 .05em;border-radius:.18em}
+.annotation-anchor{
+  border-bottom:2px dotted #f59e0b;cursor:pointer;border-radius:.12em
+}
+.inline-note-badge{
+  border:0;background:transparent;padding:0 2px;margin:0 1px;font-size:.72em;vertical-align:super;
+  cursor:pointer;line-height:1
+}
+.annotation-section{margin-top:20px;border-top:1px solid var(--line);padding-top:18px}
+.annotation-title-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.annotation-count{font-size:12px;color:#64748b;background:#f1f5f9;padding:4px 8px;border-radius:999px}
+.annotation-list{display:grid;gap:9px}
+.annotation-empty{font-size:13px;color:#94a3b8;padding:10px 0}
+.annotation-item{border:1px solid var(--line);border-radius:12px;padding:11px 12px;background:#fafafa;cursor:pointer}
+.annotation-item .anno-meta{font-size:11px;color:#b45309;font-weight:800;margin-bottom:5px}
+.annotation-item .anno-quote{font-size:13px;color:#475569;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:5px}
+.annotation-item .anno-text{font-size:14px;line-height:1.6;color:#1f2937}
+.annotation-modal{position:fixed;inset:0;z-index:120;display:none;align-items:flex-end;justify-content:center;background:rgba(15,23,42,.28);padding:14px}
+.annotation-modal.show{display:flex}
+.annotation-sheet{width:min(560px,100%);background:#fff;border-radius:18px;padding:18px;box-shadow:0 24px 70px rgba(15,23,42,.28);max-height:82vh;overflow:auto}
+.annotation-sheet h2{margin:0 0 12px;font-size:20px}
+.annotation-preview{font-size:13px;line-height:1.65;color:#475569;background:#f8fafc;border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin-bottom:12px;max-height:120px;overflow:auto}
+.annotation-form-row{display:grid;grid-template-columns:120px 1fr;gap:10px;align-items:center;margin-bottom:10px}
+.annotation-sheet select,.annotation-sheet textarea{width:100%;border:1px solid var(--line);border-radius:11px;padding:10px;background:#fff;outline:none}
+.annotation-sheet textarea{min-height:120px;resize:vertical}
+.annotation-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
+.annotation-actions button{border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px 13px;font-weight:750}
+.annotation-actions .primary{background:#2563eb;color:#fff;border-color:#2563eb}
+.annotation-actions .danger{color:#b91c1c;background:#fff7f7}
 .note-box{
   margin-top:24px;border-top:1px solid var(--line);padding-top:20px
 }
@@ -159,12 +199,17 @@ mark.user-hl{padding:0 .05em;border-radius:.18em}
       <div class="meta" id="meta"><span>筆記</span><span>•</span><span>總體經濟・債券</span></div>
       <h1 id="title">示範｜CPI、利率與債券殖利率怎麼串起來？</h1>
 
-      <div class="selection-hint">💡 選取文字後才會出現螢光筆工具列；點一下已標記文字，也可以改色或取消標記。</div>
+      <div class="selection-hint">💡 選取文字後會出現工具列，可螢光標記、加註解；點一下已標記文字也能改色或取消標記。</div>
 
       <div id="articleBody" class="article-body">
         <p>當市場看到 <span class="finance-term" data-term="CPI">CPI</span> 等通膨數據高於預期時，常會重新評估未來的 <span class="finance-term" data-term="利率">利率</span> 路徑。</p>
         <p>如果市場認為未來利率可能維持較高水準，債券價格可能先反映這種預期，而 <span class="finance-term" data-term="債券殖利率">債券殖利率</span> 也可能因此發生變化。</p>
         <p>閱讀這類新聞時，不要只記住「數字上升或下降」，而是要試著把「經濟數據 → 市場預期 → 利率 → 債券價格與殖利率」串起來。</p>
+      </div>
+
+      <div class="annotation-section">
+        <div class="annotation-title-row"><div style="font-weight:750">💬 本篇文字註解</div><span class="annotation-count" id="annotationCount">0 則</span></div>
+        <div class="annotation-list" id="annotationList"><div class="annotation-empty">尚未建立文字註解。</div></div>
       </div>
 
       <div class="note-box">
@@ -192,8 +237,41 @@ mark.user-hl{padding:0 .05em;border-radius:.18em}
     <button class="color-btn hl" data-color="cyan" aria-label="青色" title="青色" style="background:#cffafe"></button>
     <button class="color-btn hl" data-color="gray" aria-label="灰色" title="灰色" style="background:#e5e7eb"></button>
   </div>
+  <button class="selection-action" id="moreColorsBtn">＋更多</button>
+  <button class="selection-action" id="addAnnotation">📝 註解</button>
   <button class="selection-action danger" id="removeHL">取消標記</button>
   <button class="selection-action" id="closeHLToolbar" aria-label="關閉">×</button>
+</div>
+<div class="more-colors" id="moreColorsPanel" aria-hidden="true">
+  <div class="more-colors-grid">
+    <div class="more-color-cell"><button class="color-btn hl" data-color="#ffc7c7" aria-label="淡紅" title="淡紅" style="background:#ffc7c7"></button></div>
+    <div class="more-color-cell"><button class="color-btn hl" data-color="#ffd6a5" aria-label="杏橘" title="杏橘" style="background:#ffd6a5"></button></div>
+    <div class="more-color-cell"><button class="color-btn hl" data-color="#fdffb6" aria-label="檸檬" title="檸檬" style="background:#fdffb6"></button></div>
+    <div class="more-color-cell"><button class="color-btn hl" data-color="#d9f99d" aria-label="萊姆" title="萊姆" style="background:#d9f99d"></button></div>
+    <div class="more-color-cell"><button class="color-btn hl" data-color="#b8f2e6" aria-label="薄荷" title="薄荷" style="background:#b8f2e6"></button></div>
+    <div class="more-color-cell"><button class="color-btn hl" data-color="#a9def9" aria-label="天藍" title="天藍" style="background:#a9def9"></button></div>
+    <div class="more-color-cell"><button class="color-btn hl" data-color="#c7d2fe" aria-label="靛藍" title="靛藍" style="background:#c7d2fe"></button></div>
+    <div class="more-color-cell"><button class="color-btn hl" data-color="#d8b4fe" aria-label="薰衣草紫" title="薰衣草紫" style="background:#d8b4fe"></button></div>
+    <div class="more-color-cell"><button class="color-btn hl" data-color="#f5c2e7" aria-label="玫瑰" title="玫瑰" style="background:#f5c2e7"></button></div>
+    <div class="more-color-cell"><button class="color-btn hl" data-color="#e7c6a5" aria-label="奶茶" title="奶茶" style="background:#e7c6a5"></button></div>
+    <div class="more-color-cell"><button class="color-btn hl" data-color="#f4e1c1" aria-label="米色" title="米色" style="background:#f4e1c1"></button></div>
+    <div class="more-color-cell"><button class="color-btn hl" data-color="#d1d5db" aria-label="銀灰" title="銀灰" style="background:#d1d5db"></button></div>
+  </div>
+  <div class="custom-color-wrap"><span>自訂顏色</span><input class="custom-color-input" id="customColor" type="color" value="#ffe082" aria-label="自訂螢光筆顏色"></div>
+</div>
+
+<div class="annotation-modal" id="annotationModal" aria-hidden="true">
+  <div class="annotation-sheet" role="dialog" aria-modal="true" aria-labelledby="annotationModalTitle">
+    <h2 id="annotationModalTitle">📝 文字註解</h2>
+    <div class="annotation-preview" id="annotationPreview"></div>
+    <div class="annotation-form-row"><label for="annotationType">類型</label><select id="annotationType"><option>我的理解</option><option>疑問</option><option>補充</option><option>待查資料</option></select></div>
+    <textarea id="annotationText" placeholder="輸入這段文字的註解、理解、疑問或待查資料…"></textarea>
+    <div class="annotation-actions">
+      <button class="danger" id="deleteAnnotation" style="display:none">刪除註解</button>
+      <button id="cancelAnnotation">取消</button>
+      <button class="primary" id="saveAnnotation">儲存註解</button>
+    </div>
+  </div>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -280,6 +358,7 @@ function renderArticle(){
  body.innerHTML=saved || a.body.map(p=>`<p>${p}</p>`).join("");
  document.getElementById("note").value=localStorage.getItem(key("note",a.id))||"";
  bindTerms();
+ renderAnnotations();
 }
 function bindTerms(){
  document.querySelectorAll(".finance-term").forEach(el=>{
@@ -296,9 +375,14 @@ function showHLToolbar(){
  selectionToolbar.classList.add("show");
  selectionToolbar.setAttribute("aria-hidden","false");
 }
+function hideMoreColors(){
+ const p=document.getElementById("moreColorsPanel");
+ p.classList.remove("show"); p.setAttribute("aria-hidden","true");
+}
 function hideHLToolbar(clearState=false){
  selectionToolbar.classList.remove("show");
  selectionToolbar.setAttribute("aria-hidden","true");
+ hideMoreColors();
  if(clearState){activeMark=null;savedRange=null;}
 }
 function captureArticleSelection(){
@@ -379,9 +463,105 @@ function finishHLAction(message){
  saveBody();
  if(message)toast(message);
 }
+function applyMarkColor(mark,color){
+ mark.className="user-hl";
+ mark.style.backgroundColor="";
+ if(String(color).startsWith("#")) mark.style.backgroundColor=color;
+ else mark.classList.add(`hl-${color}`);
+}
+function getAnnotations(){
+ try{return JSON.parse(localStorage.getItem(key("annotations",currentId))||"[]")}catch(e){return []}
+}
+function setAnnotations(items){localStorage.setItem(key("annotations",currentId),JSON.stringify(items))}
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]))}
+function renderAnnotations(){
+ const items=getAnnotations();
+ const box=document.getElementById("annotationList");
+ document.getElementById("annotationCount").textContent=`${items.length} 則`;
+ if(!items.length){box.innerHTML='<div class="annotation-empty">尚未建立文字註解。</div>';return}
+ box.innerHTML=items.map(n=>`<div class="annotation-item" data-note-id="${n.id}"><div class="anno-meta">${esc(n.type||"註解")}</div><div class="anno-quote">「${esc(n.quote)}」</div><div class="anno-text">${esc(n.text)}</div></div>`).join("");
+ box.querySelectorAll(".annotation-item").forEach(el=>el.onclick=()=>openAnnotationModal(el.dataset.noteId));
+}
+let pendingAnnotation=null;
+function makeNoteId(){return `n-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`}
+function closestBlock(node){
+ let el=node.nodeType===1?node:node.parentElement;
+ return el?.closest?.("p,li,blockquote,div.article-body")||null;
+}
+function openAnnotationModal(existingId=null){
+ const items=getAnnotations();
+ const modal=document.getElementById("annotationModal");
+ const del=document.getElementById("deleteAnnotation");
+ if(existingId){
+   const n=items.find(x=>x.id===existingId); if(!n)return;
+   pendingAnnotation={id:existingId,editing:true};
+   document.getElementById("annotationPreview").textContent=`「${n.quote}」`;
+   document.getElementById("annotationType").value=n.type||"我的理解";
+   document.getElementById("annotationText").value=n.text||"";
+   del.style.display="inline-block";
+ }else{
+   const range=getArticleRange();
+   if(!range){toast("請先選取要註解的文字");return}
+   const quote=range.toString().trim(); if(!quote){toast("請先選取要註解的文字");return}
+   const sb=closestBlock(range.startContainer), eb=closestBlock(range.endContainer);
+   if(!sb || !eb || sb!==eb){toast("目前註解請先選取同一段落內的文字");return}
+   if(marksIntersecting(range).some(()=>false)){}
+   const already=[...document.querySelectorAll("#articleBody .annotation-anchor")].some(a=>{try{return range.intersectsNode(a)}catch(e){return false}});
+   if(already){toast("這段範圍已有文字註解，可直接點 📝 修改");return}
+   pendingAnnotation={id:makeNoteId(),editing:false,range:range.cloneRange(),quote};
+   document.getElementById("annotationPreview").textContent=`「${quote}」`;
+   document.getElementById("annotationType").value="我的理解";
+   document.getElementById("annotationText").value="";
+   del.style.display="none";
+ }
+ hideHLToolbar(false);
+ modal.classList.add("show"); modal.setAttribute("aria-hidden","false");
+ setTimeout(()=>document.getElementById("annotationText").focus(),80);
+}
+function closeAnnotationModal(){
+ const modal=document.getElementById("annotationModal");
+ modal.classList.remove("show");modal.setAttribute("aria-hidden","true");
+ pendingAnnotation=null;
+}
+function unwrapAnnotation(span){
+ if(!span||!span.isConnected)return;
+ const id=span.dataset.noteId; const parent=span.parentNode;
+ span.replaceWith(...span.childNodes); parent?.normalize?.();
+ document.querySelectorAll(`#articleBody .inline-note-badge[data-note-id="${id}"]`).forEach(b=>b.remove());
+}
+function saveAnnotationFromModal(){
+ if(!pendingAnnotation)return;
+ const text=document.getElementById("annotationText").value.trim();
+ if(!text){toast("請輸入註解內容");return}
+ const type=document.getElementById("annotationType").value;
+ let items=getAnnotations();
+ if(pendingAnnotation.editing){
+   items=items.map(n=>n.id===pendingAnnotation.id?{...n,type,text,updatedAt:Date.now()}:n);
+   setAnnotations(items); renderAnnotations(); closeAnnotationModal(); toast("註解已更新"); return;
+ }
+ const range=pendingAnnotation.range;
+ const body=document.getElementById("articleBody");
+ if(!range || !body.contains(range.commonAncestorContainer)){toast("選取位置已改變，請重新選取文字");closeAnnotationModal();return}
+ try{
+   const span=document.createElement("span"); span.className="annotation-anchor"; span.dataset.noteId=pendingAnnotation.id;
+   span.title=text;
+   const frag=range.extractContents(); span.appendChild(frag); range.insertNode(span);
+   const badge=document.createElement("button"); badge.type="button"; badge.className="inline-note-badge"; badge.dataset.noteId=pendingAnnotation.id; badge.setAttribute("aria-label","查看文字註解"); badge.textContent="📝";
+   span.after(badge);
+   items.push({id:pendingAnnotation.id,quote:pendingAnnotation.quote,type,text,createdAt:Date.now()});
+   setAnnotations(items); saveBody(); renderAnnotations(); window.getSelection()?.removeAllRanges(); savedRange=null; activeMark=null; closeAnnotationModal(); toast("已建立文字註解");
+ }catch(e){toast("這段文字結構較複雜，請縮小選取範圍再試")}
+}
+function deleteCurrentAnnotation(){
+ if(!pendingAnnotation?.editing)return;
+ const id=pendingAnnotation.id;
+ document.querySelectorAll(`#articleBody .annotation-anchor[data-note-id="${id}"]`).forEach(unwrapAnnotation);
+ setAnnotations(getAnnotations().filter(n=>n.id!==id));
+ saveBody(); renderAnnotations(); closeAnnotationModal(); toast("已刪除註解");
+}
 function highlight(color){
  if(activeMark && activeMark.isConnected){
-   activeMark.className=`user-hl hl-${color}`;
+   applyMarkColor(activeMark,color);
    finishHLAction("已變更標記顏色");
    return;
  }
@@ -389,14 +569,14 @@ function highlight(color){
  if(!range){toast("請先選取文章文字");return;}
  try{
    const mark=document.createElement("mark");
-   mark.className=`user-hl hl-${color}`;
+   applyMarkColor(mark,color);
    range.surroundContents(mark);
    finishHLAction("已標記重點");
  }catch(e){
    try{
      const frag=range.extractContents();
      const mark=document.createElement("mark");
-     mark.className=`user-hl hl-${color}`;
+     applyMarkColor(mark,color);
      mark.appendChild(frag); range.insertNode(mark);
      finishHLAction("已標記重點");
    }catch(err){
@@ -413,6 +593,18 @@ document.querySelectorAll(".hl").forEach(b=>{
  b.addEventListener("pointerdown",e=>e.preventDefault());
  b.addEventListener("click",()=>highlight(b.dataset.color));
 });
+document.getElementById("moreColorsBtn").addEventListener("pointerdown",e=>e.preventDefault());
+document.getElementById("moreColorsBtn").onclick=()=>{
+ const p=document.getElementById("moreColorsPanel"); const on=!p.classList.contains("show");
+ p.classList.toggle("show",on); p.setAttribute("aria-hidden",on?"false":"true");
+};
+document.getElementById("customColor").addEventListener("change",e=>highlight(e.target.value));
+document.getElementById("addAnnotation").addEventListener("pointerdown",e=>e.preventDefault());
+document.getElementById("addAnnotation").onclick=()=>openAnnotationModal();
+document.getElementById("saveAnnotation").onclick=saveAnnotationFromModal;
+document.getElementById("cancelAnnotation").onclick=closeAnnotationModal;
+document.getElementById("deleteAnnotation").onclick=()=>{if(confirm("要刪除這則文字註解嗎？"))deleteCurrentAnnotation()};
+document.getElementById("annotationModal").addEventListener("click",e=>{if(e.target.id==="annotationModal")closeAnnotationModal()});
 
 document.getElementById("removeHL").addEventListener("pointerdown",e=>e.preventDefault());
 document.getElementById("removeHL").onclick=()=>{
@@ -436,6 +628,11 @@ document.getElementById("clearHL").onclick=()=>{
 };
 
 articleBodyEl.addEventListener("click",e=>{
+ const anno=e.target.closest?.(".annotation-anchor,.inline-note-badge");
+ if(anno){
+   const id=anno.dataset.noteId; if(id)openAnnotationModal(id);
+   return;
+ }
  const mark=e.target.closest?.("mark.user-hl");
  if(!mark)return;
  activeMark=mark;
@@ -459,7 +656,7 @@ document.getElementById("showTerms").onclick=()=>{
 };
 document.getElementById("closeTerms").onclick=closeTerms;
 document.getElementById("drawerBackdrop").onclick=closeTerms;
-document.addEventListener("keydown",e=>{if(e.key==="Escape")closeTerms();});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeTerms();closeAnnotationModal();hideHLToolbar(true);}});
 
 const mobileSel=document.getElementById("mobileArticleSelect");
 if(mobileSel){
