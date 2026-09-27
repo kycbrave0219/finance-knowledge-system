@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>財經閱讀系統 v1.9</title>
+<title>財經閱讀系統 v2.1</title>
 <style>
 :root{
   --bg:#f6f7fb; --panel:#fff; --line:#e5e7eb; --text:#111827; --muted:#6b7280;
@@ -53,14 +53,15 @@ h1{font-size:27px;line-height:1.35;margin:9px 0 14px}
 }
 .selection-toolbar{
   position:fixed;left:50%;bottom:calc(14px + env(safe-area-inset-bottom));z-index:90;
-  width:min(720px,calc(100vw - 24px));display:flex;align-items:center;gap:8px;
+  width:min(720px,calc(100vw - 24px));display:flex;align-items:center;justify-content:flex-start;gap:8px;
   padding:9px;background:rgba(255,255,255,.97);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
   border:1px solid #dbe2ea;border-radius:16px;box-shadow:0 14px 40px rgba(15,23,42,.22);
+  overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch;overscroll-behavior-inline:contain;
   opacity:0;pointer-events:none;transform:translate(-50%,24px) scale(.98);transition:.16s ease
 }
+.selection-toolbar::-webkit-scrollbar{display:none}
 .selection-toolbar.show{opacity:1;pointer-events:auto;transform:translate(-50%,0) scale(1)}
-.color-palette{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;flex:1;padding:1px}
-.color-palette::-webkit-scrollbar{display:none}
+.color-palette{display:flex;gap:7px;flex:0 0 auto;padding:1px;overflow:visible}
 .color-btn{
   width:34px;height:34px;min-width:34px;border:1px solid rgba(15,23,42,.12);border-radius:10px;
   padding:0;box-shadow:inset 0 0 0 2px rgba(255,255,255,.45);cursor:pointer
@@ -121,6 +122,27 @@ mark.user-hl{padding:0 .05em;border-radius:.18em}
 .annotation-section.collapsed .annotation-list{display:none}
 .annotation-toggle:active{opacity:.7}
 .annotation-empty{font-size:13px;color:#94a3b8;padding:10px 0}
+.quick-panel{margin-top:10px;border:1px solid var(--line);border-radius:13px;padding:12px 14px;background:#fafafa}
+.quick-panel.annotation-section{border-top:1px solid var(--line);padding-top:12px}
+.quick-panel .annotation-list{margin-top:10px}
+.note-box.quick-panel{margin-top:10px;border-top:1px solid var(--line);padding-top:12px}
+.note-box.collapsed .note-content{display:none}
+.note-content{margin-top:10px}
+.note-status{font-size:12px;color:#64748b;background:#f1f5f9;padding:4px 8px;border-radius:999px}
+.article-content-section{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+.article-content-toggle{
+  width:100%;border:0;background:transparent;padding:0;display:flex;align-items:center;justify-content:space-between;gap:10px;
+  color:var(--text);cursor:pointer;text-align:left
+}
+.article-content-toggle-left{display:flex;align-items:center;gap:7px;font-weight:800}
+.article-content-toggle-right{display:flex;align-items:center;gap:8px;color:#64748b;font-size:12px;font-weight:750}
+.article-content-chevron{font-size:18px;line-height:1;transition:transform .16s ease}
+.article-content-frame{position:relative;margin-top:6px}
+.article-content-section.collapsed .article-content-frame{max-height:11.8em;overflow:hidden}
+.article-content-section.collapsed .article-content-frame::after{
+  content:"";position:absolute;left:0;right:0;bottom:0;height:4.2em;pointer-events:none;
+  background:linear-gradient(to bottom,rgba(255,255,255,0),#fff 82%)
+}
 .annotation-item{border:1px solid var(--line);border-radius:12px;padding:11px 12px;background:#fafafa;cursor:pointer}
 .annotation-item .anno-meta{font-size:11px;color:#b45309;font-weight:800;margin-bottom:5px}
 .annotation-item .anno-quote{font-size:13px;color:#475569;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:5px}
@@ -180,7 +202,7 @@ mark.user-hl{padding:0 .05em;border-radius:.18em}
 .annotation-actions .primary{background:#2563eb;color:#fff;border-color:#2563eb}
 .annotation-actions .danger{color:#b91c1c;background:#fff7f7}
 .note-box{
-  margin-top:24px;border-top:1px solid var(--line);padding-top:20px
+  margin-top:10px
 }
 .note-box textarea{
   width:100%;min-height:100px;border:1px solid var(--line);border-radius:12px;padding:12px;resize:vertical;outline:none
@@ -258,13 +280,7 @@ mark.user-hl{padding:0 .05em;border-radius:.18em}
 
       <div class="selection-hint">💡 選取文字後會出現工具列，可螢光標記、加註解；點一下已標記文字也能改色或取消標記。</div>
 
-      <div id="articleBody" class="article-body">
-        <p>當市場看到 <span class="finance-term" data-term="CPI">CPI</span> 等通膨數據高於預期時，常會重新評估未來的 <span class="finance-term" data-term="利率">利率</span> 路徑。</p>
-        <p>如果市場認為未來利率可能維持較高水準，債券價格可能先反映這種預期，而 <span class="finance-term" data-term="債券殖利率">債券殖利率</span> 也可能因此發生變化。</p>
-        <p>閱讀這類新聞時，不要只記住「數字上升或下降」，而是要試著把「經濟數據 → 市場預期 → 利率 → 債券價格與殖利率」串起來。</p>
-      </div>
-
-      <div class="annotation-section collapsed" id="annotationSection">
+      <div class="annotation-section quick-panel collapsed" id="annotationSection">
         <button type="button" class="annotation-toggle" id="annotationToggle" aria-expanded="false" aria-controls="annotationList">
           <span class="annotation-toggle-left">💬 本篇文字註解</span>
           <span class="annotation-toggle-right"><span class="annotation-count" id="annotationCount">0 則</span><span class="annotation-chevron" id="annotationChevron">⌄</span></span>
@@ -272,9 +288,29 @@ mark.user-hl{padding:0 .05em;border-radius:.18em}
         <div class="annotation-list" id="annotationList"><div class="annotation-empty">尚未建立文字註解。</div></div>
       </div>
 
-      <div class="note-box">
-        <div class="note-head"><div style="font-weight:750">📝 我的註記</div><button class="clear-all-btn" id="clearHL">🧹 清除本篇標記</button></div>
-        <textarea id="note" placeholder="輸入自己的理解、疑問或待查資料…"></textarea>
+      <div class="note-box quick-panel collapsed" id="noteSection">
+        <button type="button" class="annotation-toggle" id="noteToggle" aria-expanded="false" aria-controls="noteContent">
+          <span class="annotation-toggle-left">📝 我的註記</span>
+          <span class="annotation-toggle-right"><span class="note-status" id="noteStatus">尚未填寫</span><span class="annotation-chevron" id="noteChevron">⌄</span></span>
+        </button>
+        <div class="note-content" id="noteContent">
+          <div class="note-head"><div style="font-size:12px;color:#64748b">記錄自己的理解、疑問或待查資料</div><button class="clear-all-btn" id="clearHL">🧹 清除本篇標記</button></div>
+          <textarea id="note" placeholder="輸入自己的理解、疑問或待查資料…"></textarea>
+        </div>
+      </div>
+
+      <div class="article-content-section collapsed" id="articleContentSection">
+        <button type="button" class="article-content-toggle" id="articleContentToggle" aria-expanded="false" aria-controls="articleContentFrame">
+          <span class="article-content-toggle-left">📄 文章內容</span>
+          <span class="article-content-toggle-right"><span id="articleContentState">展開全文</span><span class="article-content-chevron" id="articleContentChevron">⌄</span></span>
+        </button>
+        <div class="article-content-frame" id="articleContentFrame">
+          <div id="articleBody" class="article-body">
+            <p>當市場看到 <span class="finance-term" data-term="CPI">CPI</span> 等通膨數據高於預期時，常會重新評估未來的 <span class="finance-term" data-term="利率">利率</span> 路徑。</p>
+            <p>如果市場認為未來利率可能維持較高水準，債券價格可能先反映這種預期，而 <span class="finance-term" data-term="債券殖利率">債券殖利率</span> 也可能因此發生變化。</p>
+            <p>閱讀這類新聞時，不要只記住「數字上升或下降」，而是要試著把「經濟數據 → 市場預期 → 利率 → 債券價格與殖利率」串起來。</p>
+          </div>
+        </div>
       </div>
     </article>
   </main>
@@ -496,10 +532,16 @@ function renderArticle(){
  const saved=localStorage.getItem(key("body",a.id));
  const baseHtml=a.bodyHtml || (Array.isArray(a.body)?a.body.map(p=>`<p>${p}</p>`).join(""):"");
  body.innerHTML=saved || baseHtml;
+ if(removeImportedNoiseFromDom(body)){
+   localStorage.setItem(key("body",a.id),body.innerHTML);
+ }
  document.getElementById("note").value=localStorage.getItem(key("note",a.id))||"";
+ updateNoteStatus();
  bindTerms();
  renderAnnotations();
  setAnnotationExpanded(false);
+ setNoteExpanded(false);
+ setArticleContentExpanded(false);
 }
 
 function plainTextToHtml(text){
@@ -518,6 +560,25 @@ function setImportStatus(message="",kind=""){
 }
 function normalizeImportedText(text){
  return String(text||"").replace(/\r/g,"").replace(/[ \t]+\n/g,"\n").replace(/\n{3,}/g,"\n\n").trim();
+}
+
+// 移除閱讀器／新聞頁常見的獨立廣告提示，但保留正文中正常提到「廣告」的句子。
+function isImportedNoiseLine(value){
+  const t=String(value||"").replace(/\s+/g," ").trim();
+  if(!t)return false;
+  return /^廣告\s*[（(]?\s*請繼續閱讀(?:本文|全文)?\s*[）)]?\s*$/i.test(t) ||
+         /^advertisement\s*[（(]?\s*(?:continue reading|read more).*?[）)]?\s*$/i.test(t);
+}
+function removeImportedNoiseLines(text){
+  return normalizeImportedText(String(text||"").split("\n").filter(line=>!isImportedNoiseLine(line)).join("\n"));
+}
+function removeImportedNoiseFromDom(root){
+  if(!root)return false;
+  let changed=false;
+  [...root.querySelectorAll("p,li,blockquote")].forEach(el=>{
+    if(isImportedNoiseLine(el.textContent||"")){el.remove();changed=true;}
+  });
+  return changed;
 }
 
 /* 清理網址閱讀器常帶入的技術欄位：
@@ -583,7 +644,7 @@ function cleanReaderImportedText(text){
    break;
  }
 
- return normalizeImportedText(lines.join("\n"));
+ return removeImportedNoiseLines(lines.join("\n"));
 }
 
 function looksLikeBlockedArticlePage(text,title=""){
@@ -1002,8 +1063,11 @@ function holdToolbarInteraction(ms=500){
 }
 
 function showHLToolbar(){
+ const wasShown=selectionToolbar.classList.contains("show");
  selectionToolbar.classList.add("show");
  selectionToolbar.setAttribute("aria-hidden","false");
+ // 新一次選取文字時，從最左側顏色開始顯示；同一次操作中不強制跳回。
+ if(!wasShown)selectionToolbar.scrollLeft=0;
 }
 function hideMoreColors(){
  const p=document.getElementById("moreColorsPanel");
@@ -1113,6 +1177,33 @@ function setAnnotationExpanded(expanded){
  section.classList.toggle("collapsed",!expanded);
  toggle.setAttribute("aria-expanded",expanded?"true":"false");
  chevron.textContent=expanded?"⌃":"⌄";
+}
+function setNoteExpanded(expanded){
+  const section=document.getElementById("noteSection");
+  const toggle=document.getElementById("noteToggle");
+  const chevron=document.getElementById("noteChevron");
+  if(!section || !toggle || !chevron)return;
+  section.classList.toggle("collapsed",!expanded);
+  toggle.setAttribute("aria-expanded",expanded?"true":"false");
+  chevron.textContent=expanded?"⌃":"⌄";
+}
+function updateNoteStatus(){
+  const note=document.getElementById("note");
+  const status=document.getElementById("noteStatus");
+  if(!note || !status)return;
+  const n=note.value.trim().length;
+  status.textContent=n?`已記錄 ${n} 字`:"尚未填寫";
+}
+function setArticleContentExpanded(expanded){
+  const section=document.getElementById("articleContentSection");
+  const toggle=document.getElementById("articleContentToggle");
+  const state=document.getElementById("articleContentState");
+  const chevron=document.getElementById("articleContentChevron");
+  if(!section || !toggle || !state || !chevron)return;
+  section.classList.toggle("collapsed",!expanded);
+  toggle.setAttribute("aria-expanded",expanded?"true":"false");
+  state.textContent=expanded?"收合全文":"展開全文";
+  chevron.textContent=expanded?"⌃":"⌄";
 }
 function renderAnnotations(){
  const items=getAnnotations();
@@ -1245,6 +1336,17 @@ function toggleMoreColors(e){
 }
 moreColorsBtn.addEventListener("pointerdown",toggleMoreColors);
 moreColorsBtn.addEventListener("click",e=>{e.preventDefault();e.stopPropagation();});
+
+// 更多顏色開啟時，點面板外任何地方就收起；底下工具列仍保留。
+document.addEventListener("pointerdown",e=>{
+ if(!moreColorsPanel.classList.contains("show"))return;
+ const target=e.target;
+ if(moreColorsPanel.contains(target) || moreColorsBtn.contains(target))return;
+ holdToolbarInteraction(450);
+ hideMoreColors();
+ showHLToolbar();
+},true);
+
 document.getElementById("customColor").addEventListener("change",e=>highlight(e.target.value));
 document.getElementById("addAnnotation").addEventListener("pointerdown",e=>e.preventDefault());
 document.getElementById("addAnnotation").onclick=()=>openAnnotationModal();
@@ -1311,8 +1413,17 @@ document.getElementById("annotationToggle").onclick=()=>{
  const section=document.getElementById("annotationSection");
  setAnnotationExpanded(section.classList.contains("collapsed"));
 };
+document.getElementById("noteToggle").onclick=()=>{
+ const section=document.getElementById("noteSection");
+ setNoteExpanded(section.classList.contains("collapsed"));
+};
+document.getElementById("articleContentToggle").onclick=()=>{
+ const section=document.getElementById("articleContentSection");
+ setArticleContentExpanded(section.classList.contains("collapsed"));
+};
 document.getElementById("note").addEventListener("input",e=>{
  localStorage.setItem(key("note",currentId),e.target.value);
+ updateNoteStatus();
 });
 document.getElementById("search").addEventListener("input",e=>renderList(e.target.value));
 document.getElementById("showTerms").onclick=()=>{
