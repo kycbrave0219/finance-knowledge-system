@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>財經閱讀系統 v1.5</title>
+<title>財經閱讀系統 v1.7</title>
 <style>
 :root{
   --bg:#f6f7fb; --panel:#fff; --line:#e5e7eb; --text:#111827; --muted:#6b7280;
@@ -140,6 +140,12 @@ mark.user-hl{padding:0 .05em;border-radius:.18em}
 .article-field input,.article-field textarea{width:100%;border:1px solid var(--line);border-radius:11px;padding:10px 11px;background:#fff;outline:none}
 .article-field input:focus,.article-field textarea:focus{border-color:#93c5fd;box-shadow:0 0 0 3px #dbeafe}
 .article-field textarea{min-height:240px;resize:vertical;line-height:1.65}
+.topic-input-row{display:flex;align-items:center;gap:7px}
+.topic-input-row input{flex:1;min-width:0}
+.topic-auto-btn{flex:0 0 auto;height:41px;border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;border-radius:10px;padding:0 10px;font-size:12px;font-weight:800;white-space:nowrap;cursor:pointer}
+.topic-auto-btn:active{transform:scale(.98)}
+.topic-auto-hint{font-size:11px;color:#64748b;line-height:1.45;margin-top:5px;min-height:1.45em}
+.topic-auto-hint.auto{color:#047857}
 .article-help{font-size:12px;color:#64748b;line-height:1.55;margin-top:-2px;margin-bottom:10px}
 .article-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:12px}
 .article-actions button{border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px 13px;font-weight:750}
@@ -341,10 +347,10 @@ mark.user-hl{padding:0 .05em;border-radius:.18em}
     <div class="article-field"><label for="articleTitleInput">文章標題</label><input id="articleTitleInput" placeholder="輸入文章標題" /></div>
     <div class="article-form-grid">
       <div class="article-field"><label for="articleTypeInput">類型</label><input id="articleTypeInput" placeholder="例如：筆記、新聞、概念" /></div>
-      <div class="article-field"><label for="articleTopicInput">主題</label><input id="articleTopicInput" placeholder="例如：總體經濟・債券" /></div>
+      <div class="article-field"><label for="articleTopicInput">主題</label><div class="topic-input-row"><input id="articleTopicInput" placeholder="會依標題與內容自動判斷" /><button type="button" class="topic-auto-btn" id="autoTopicBtn">✨ 自動判斷</button></div><div class="topic-auto-hint" id="topicAutoHint">輸入標題或文章內容後，系統會自動建議 1～3 個主題，也可自行修改。</div></div>
     </div>
     <div class="article-field"><label for="articleContentInput">文章內容</label><textarea id="articleContentInput" placeholder="貼上或輸入文章內容。空一行可分成不同段落。"></textarea></div>
-    <div class="article-help">可用手動貼上、剪貼簿、網址擷取、TXT／MD／HTML／PDF 檔案匯入。修改文章內容時，若該篇已有螢光標記或文字註解，系統會先提醒；只修改標題、類型、主題或來源網址不會影響既有標記。</div>
+    <div class="article-help">可用手動貼上、剪貼簿、網址擷取、TXT／MD／HTML／PDF 檔案匯入。主題會依標題＋文章內容自動建議，你仍可直接修改。修改文章內容時，若該篇已有螢光標記或文字註解，系統會先提醒；只修改標題、類型、主題或來源網址不會影響既有標記。</div>
     <div class="article-actions">
       <button class="danger" id="deleteArticle" style="display:none">刪除文章</button>
       <button id="cancelArticle">取消</button>
@@ -505,6 +511,68 @@ function setImportStatus(message="",kind=""){
 function normalizeImportedText(text){
  return String(text||"").replace(/\r/g,"").replace(/[ \t]+\n/g,"\n").replace(/\n{3,}/g,"\n\n").trim();
 }
+
+/* 清理網址閱讀器常帶入的技術欄位：
+   Title / URL Source / Published Time / Markdown Content，
+   並移除正文開頭重複的 Image N 圖說。 */
+function cleanReaderImportedText(text){
+ let v=String(text||"").replace(/\r/g,"");
+ const head=v.split("\n").slice(0,24).join("\n");
+ const looksLikeReader=/^Markdown Content\s*:/mi.test(head) ||
+   ((head.match(/^(?:Title|URL Source|Published Time)\s*:/gmi)||[]).length>=2);
+
+ if(looksLikeReader){
+   const marker=/^Markdown Content\s*:\s*(?:\n|$)/mi;
+   const m=marker.exec(v);
+   if(m){
+     v=v.slice(m.index+m[0].length);
+   }else{
+     const lines=v.split("\n");
+     let i=0;
+     while(i<lines.length){
+       const line=lines[i].trim();
+       if(!line){i++;continue}
+       if(/^(?:Title|URL Source|Published Time)\s*:/i.test(line)){i++;continue}
+       if(/^https?:\/\//i.test(line) && i<8){i++;continue}
+       break;
+     }
+     v=lines.slice(i).join("\n");
+   }
+ }
+
+ v=normalizeImportedText(v);
+ let lines=v.split("\n");
+
+ // 只清理正文「最前面」的 Image 1 / Image 2...，不動文章中間正常圖片說明。
+ let keepCleaning=true;
+ while(keepCleaning){
+   keepCleaning=false;
+   while(lines.length && !lines[0].trim())lines.shift();
+   if(!lines.length)break;
+
+   const im=lines[0].trim().match(/^Image\s*\d+\s*:\s*(.*)$/i);
+   if(im){
+     const caption=(im[1]||"").trim();
+     lines.shift();
+     while(lines.length && !lines[0].trim())lines.shift();
+
+     if(caption && lines.length){
+       const norm=x=>String(x||"").replace(/\s+/g," ").replace(/[。．.]$/,"").trim();
+       if(norm(lines[0])===norm(caption))lines.shift();
+     }
+     keepCleaning=true;
+   }
+ }
+ return normalizeImportedText(lines.join("\n"));
+}
+
+function parseReaderMarkdown(raw){
+ const source=String(raw||"").replace(/\r/g,"");
+ const titleMatch=source.match(/^Title:\s*(.+)$/mi);
+ const title=titleMatch?titleMatch[1].trim():"";
+ return {title,text:cleanReaderImportedText(markdownToPlainText(source))};
+}
+
 function markdownToPlainText(md){
  return normalizeImportedText(String(md||"")
    .replace(/^```[^\n]*\n?/gm,"").replace(/^~~~[^\n]*\n?/gm,"")
@@ -539,7 +607,8 @@ async function importFromClipboard(){
      setImportStatus("已貼入網址，可按「讀取網址」擷取內容。","ok");
      document.getElementById("articleSourceUrlInput").focus();
    }else{
-     document.getElementById("articleContentInput").value=normalizeImportedText(text);
+     document.getElementById("articleContentInput").value=cleanReaderImportedText(text);
+     scheduleAutoTopic();
      setImportStatus("已從剪貼簿貼入文章內容。","ok");
    }
  }catch(e){
@@ -561,19 +630,21 @@ async function fetchArticleFromUrl(){
      const ct=r.headers.get("content-type")||"";
      const raw=await r.text();
      if(ct.includes("html")||/<html[\s>]/i.test(raw))({title,text}=extractHtmlArticle(raw));
-     else text=normalizeImportedText(raw);
+     else text=cleanReaderImportedText(raw);
    }catch(directErr){
      const readerUrl="https://r.jina.ai/"+url;
      const r=await fetch(readerUrl,{credentials:"omit"});
      if(!r.ok)throw directErr;
      const raw=await r.text();
-     text=markdownToPlainText(raw);
-     const m=raw.match(/^Title:\s*(.+)$/mi); if(m)title=m[1].trim();
+     const parsed=parseReaderMarkdown(raw);
+     text=parsed.text;
+     if(parsed.title)title=parsed.title;
    }
    if(!text || text.length<20)throw new Error("沒有擷取到足夠的文章文字");
    if(title && !document.getElementById("articleTitleInput").value.trim())document.getElementById("articleTitleInput").value=title;
    document.getElementById("articleContentInput").value=text;
    if(!document.getElementById("articleTypeInput").value.trim())document.getElementById("articleTypeInput").value="新聞";
+   scheduleAutoTopic();
    setImportStatus("網址內容已匯入。請先快速確認標題與正文再儲存。","ok");
  }catch(e){
    setImportStatus("這個網站目前無法自動擷取。來源網址已保留，可改用複製全文後貼上。","err");
@@ -610,11 +681,12 @@ async function importArticleFile(file){
        if(parsed.title)title=parsed.title;
        text=parsed.text;
      }else if(ext==="md"||ext==="markdown"||file.type==="text/markdown")text=markdownToPlainText(raw);
-     else text=normalizeImportedText(raw);
+     else text=cleanReaderImportedText(raw);
    }
    if(!text.trim())throw new Error("檔案內沒有可讀文字");
    document.getElementById("articleContentInput").value=text;
    if(!document.getElementById("articleTitleInput").value.trim())document.getElementById("articleTitleInput").value=title;
+   scheduleAutoTopic();
    setImportStatus(`已匯入 ${file.name}。`,`ok`);
  }catch(e){
    setImportStatus(`檔案匯入失敗：${e?.message||"無法讀取"}`,"err");
@@ -628,13 +700,85 @@ function consumeSharedArticleParams(){
  if(!sharedTitle && !sharedText && !sharedUrl)return false;
  openArticleModal("new");
  if(sharedTitle)document.getElementById("articleTitleInput").value=sharedTitle;
- if(sharedText)document.getElementById("articleContentInput").value=normalizeImportedText(sharedText);
+ if(sharedText)document.getElementById("articleContentInput").value=cleanReaderImportedText(sharedText);
  if(sharedUrl && safeHttpUrl(sharedUrl))document.getElementById("articleSourceUrlInput").value=safeHttpUrl(sharedUrl);
  if(!sharedText && sharedUrl)setImportStatus("已收到分享網址，可按「讀取網址」擷取文章。","ok");
  else setImportStatus("已接收 iPhone／分享捷徑傳入的內容。","ok");
+ scheduleAutoTopic();
  try{history.replaceState(null,"",location.pathname+location.hash)}catch(e){}
  return true;
 }
+const TOPIC_RULES=[
+ {name:"半導體",keywords:[["半導體",4],["台積電",5],["tsmc",5],["聯電",4],["日月光",4],["矽品",4],["晶圓",3],["晶片",3],["先進封裝",5],["封裝",3],["cowos",5],["soic",5],["hbm",4],["ic設計",4],["光罩",3],["euv",4],["晶圓代工",5]]},
+ {name:"AI",keywords:[["人工智慧",5],["ai",4],["輝達",5],["nvidia",5],["gpu",4],["大語言模型",5],["生成式ai",5],["算力",3],["ai伺服器",5],["機器學習",4]]},
+ {name:"科技產業",keywords:[["科技產業",5],["科技",2],["科學園區",5],["嘉科",5],["竹科",5],["中科",5],["南科",5],["電子業",3],["電子產業",3],["供應鏈",2],["伺服器",3],["資料中心",3],["科技廠",3]]},
+ {name:"產業投資",keywords:[["投資興建",5],["投資",2],["擴建",4],["擴產",4],["設廠",4],["建廠",4],["資本支出",5],["capex",5],["產能",3],["廠房",3],["園區",2],["生產基地",3]]},
+ {name:"總體經濟",keywords:[["gdp",5],["cpi",5],["pce",5],["ppi",4],["通膨",5],["通貨膨脹",5],["失業率",4],["非農",4],["就業",3],["景氣",3],["經濟成長",4],["pmi",4],["消費者物價",5],["生產者物價",4]]},
+ {name:"利率",keywords:[["利率",4],["降息",5],["升息",5],["聯準會",5],["fed",5],["fomc",5],["央行",3],["政策利率",5],["基準利率",4],["利率決策",5]]},
+ {name:"債券",keywords:[["債券",5],["殖利率",5],["公債",5],["美債",5],["yield",4],["殖利率曲線",5],["信用利差",5],["公司債",4],["債市",4]]},
+ {name:"股票",keywords:[["股票",4],["股價",4],["台股",5],["美股",5],["上市",2],["上櫃",2],["大盤",3],["股市",4],["外資",3],["投信",3],["法人",2],["指數",2]]},
+ {name:"ETF・基金",keywords:[["etf",5],["基金",4],["配息",3],["淨值",3],["申購",3],["受益人",3],["共同基金",5],["指數型基金",5]]},
+ {name:"企業財報",keywords:[["財報",5],["營收",4],["eps",5],["毛利率",4],["營業利益",4],["淨利",4],["法說會",5],["財測",5],["獲利",3],["季報",4],["年報",3]]},
+ {name:"外匯",keywords:[["匯率",5],["外匯",5],["美元",3],["台幣",3],["新台幣",3],["日圓",3],["歐元",3],["人民幣",3],["升值",2],["貶值",2],["dxy",5],["美元指數",5]]},
+ {name:"金融",keywords:[["金融",4],["銀行",4],["金控",5],["保險",3],["信貸",4],["房貸",3],["存款",3],["放款",3],["信用卡",3],["金融業",5]]},
+ {name:"房地產",keywords:[["房地產",5],["房市",5],["房價",5],["預售屋",5],["成屋",4],["建商",4],["不動產",5],["租金",3],["土地交易",4],["房貸",3]]},
+ {name:"能源",keywords:[["能源",4],["原油",5],["石油",4],["油價",5],["天然氣",5],["電力",3],["綠能",4],["太陽能",4],["風電",4],["核能",4],["opec",5]]},
+ {name:"原物料",keywords:[["原物料",5],["黃金",5],["銅價",5],["銅",2],["鋼鐵",4],["鐵礦砂",5],["大豆",4],["小麥",4],["農產品",3],["商品價格",4]]},
+ {name:"航運",keywords:[["航運",5],["貨櫃",5],["海運",4],["空運",4],["運價",5],["scfi",5],["船舶",3],["散裝",4]]},
+ {name:"汽車",keywords:[["電動車",5],["ev",4],["汽車",4],["特斯拉",5],["tesla",5],["車用",3],["電池",3],["充電樁",4]]},
+ {name:"生技醫療",keywords:[["生技",5],["製藥",5],["醫療",4],["藥物",3],["臨床試驗",5],["fda",5],["疫苗",4],["新藥",5]]},
+ {name:"消費零售",keywords:[["零售",5],["消費",3],["百貨",4],["超商",4],["餐飲",4],["觀光",4],["旅遊",4],["電商",4],["內需",3]]},
+ {name:"國際市場",keywords:[["國際市場",5],["全球市場",5],["美國",2],["中國",2],["日本",2],["歐洲",2],["歐盟",2],["新興市場",4],["關稅",4],["貿易戰",5],["地緣政治",5]]},
+ {name:"政策法規",keywords:[["政策",3],["法規",5],["監管",4],["金管會",5],["國科會",4],["經濟部",4],["財政部",4],["行政院",4],["政府計畫",4],["徵求意見",3]]}
+];
+let topicManualEdited=false;
+let topicAutoTimer=null;
+function topicText(s){return String(s||"").toLowerCase().replace(/\s+/g,"");}
+function topicKeywordScore(text,keyword){
+ if(!text || !keyword)return 0;
+ let count=0,pos=0;
+ while((pos=text.indexOf(keyword,pos))!==-1){count++;pos+=Math.max(keyword.length,1);if(count>=5)break}
+ return count;
+}
+function inferArticleTopics(title,content){
+ const t=topicText(title),c=topicText(content);
+ if(!t && !c)return [];
+ const scored=TOPIC_RULES.map(rule=>{
+   let score=0,hits=0;
+   for(const item of rule.keywords){
+     const kw=topicText(item[0]),weight=Number(item[1])||1;
+     const tc=topicKeywordScore(t,kw),cc=topicKeywordScore(c,kw);
+     if(tc){score+=tc*weight*3.2;hits+=tc}
+     if(cc){score+=cc*weight;hits+=cc}
+   }
+   return {name:rule.name,score,hits};
+ }).filter(x=>x.score>=4 && x.hits>0).sort((a,b)=>b.score-a.score);
+ if(!scored.length)return [];
+ const top=scored[0].score;
+ return scored.filter((x,i)=>i<3 && (i===0 || x.score>=Math.max(4,top*.14))).map(x=>x.name);
+}
+function setTopicAutoHint(message,isAuto=false){
+ const el=document.getElementById("topicAutoHint");if(!el)return;
+ el.textContent=message;el.classList.toggle("auto",!!isAuto);
+}
+function applyAutoTopic(force=false){
+ const input=document.getElementById("articleTopicInput");if(!input)return;
+ if(topicManualEdited && !force)return;
+ const topics=inferArticleTopics(document.getElementById("articleTitleInput")?.value||"",document.getElementById("articleContentInput")?.value||"");
+ if(topics.length){
+   input.value=topics.join("・");
+   topicManualEdited=false;
+   setTopicAutoHint(`✨ 已自動判斷：${topics.join("・")}（可直接修改）`,true);
+ }else if(force){
+   setTopicAutoHint("目前文字不足以判斷主題，可自行輸入；文章內容多一些後再試。",false);
+ }
+}
+function scheduleAutoTopic(){
+ if(topicManualEdited)return;
+ clearTimeout(topicAutoTimer);
+ topicAutoTimer=setTimeout(()=>applyAutoTopic(false),420);
+}
+
 let articleEditorMode="new";
 function openArticleModal(mode="new"){
  const modal=document.getElementById("articleModal");
@@ -646,6 +790,8 @@ function openArticleModal(mode="new"){
    document.getElementById("articleTitleInput").value=a.title||"";
    document.getElementById("articleTypeInput").value=a.type||"";
    document.getElementById("articleTopicInput").value=a.topic||"";
+   topicManualEdited=true;
+   setTopicAutoHint("目前保留原主題；若要重新分析，按「✨ 自動判斷」。",false);
    document.getElementById("articleSourceUrlInput").value=a.sourceUrl||"";
    setImportStatus("");document.getElementById("iphoneShareHelp").classList.remove("show");
    const saved=localStorage.getItem(key("body",a.id));
@@ -657,6 +803,8 @@ function openArticleModal(mode="new"){
    document.getElementById("articleTitleInput").value="";
    document.getElementById("articleTypeInput").value="筆記";
    document.getElementById("articleTopicInput").value="";
+   topicManualEdited=false;
+   setTopicAutoHint("輸入標題或文章內容後，系統會自動建議 1～3 個主題，也可自行修改。",false);
    document.getElementById("articleSourceUrlInput").value="";
    document.getElementById("articleContentInput").value="";
    setImportStatus("");document.getElementById("iphoneShareHelp").classList.remove("show");
@@ -672,7 +820,8 @@ function makeArticleId(){return `a-${Date.now().toString(36)}-${Math.random().to
 function saveArticleFromModal(){
  const title=document.getElementById("articleTitleInput").value.trim();
  const type=document.getElementById("articleTypeInput").value.trim()||"筆記";
- const topic=document.getElementById("articleTopicInput").value.trim()||"未分類";
+ let topic=document.getElementById("articleTopicInput").value.trim();
+ if(!topic){const autoTopics=inferArticleTopics(title,document.getElementById("articleContentInput").value);topic=autoTopics.join("・")||"未分類";}
  const sourceUrl=safeHttpUrl(document.getElementById("articleSourceUrlInput").value)||"";
  const content=document.getElementById("articleContentInput").value.trim();
  if(!title){toast("請輸入文章標題");return}
@@ -719,8 +868,16 @@ function bindTerms(){
 let savedRange=null;
 let activeMark=null;
 let toolbarInteraction=false;
+let toolbarHoldTimer=null;
 const selectionToolbar=document.getElementById("selectionToolbar");
+const moreColorsPanel=document.getElementById("moreColorsPanel");
 const articleBodyEl=document.getElementById("articleBody");
+
+function holdToolbarInteraction(ms=500){
+ toolbarInteraction=true;
+ clearTimeout(toolbarHoldTimer);
+ toolbarHoldTimer=setTimeout(()=>{toolbarInteraction=false},ms);
+}
 
 function showHLToolbar(){
  selectionToolbar.classList.add("show");
@@ -775,7 +932,8 @@ document.addEventListener("selectionchange",()=>{
  setTimeout(()=>{
    if(captureArticleSelection())return;
    const sel=window.getSelection();
-   if(!toolbarInteraction && !activeMark && (!sel || sel.isCollapsed)) hideHLToolbar();
+   if(toolbarInteraction || moreColorsPanel.classList.contains("show"))return;
+   if(!activeMark && (!sel || sel.isCollapsed)) hideHLToolbar();
  },0);
 });
 
@@ -945,19 +1103,26 @@ function highlight(color){
  }
 }
 
-selectionToolbar.addEventListener("pointerdown",()=>{toolbarInteraction=true});
-selectionToolbar.addEventListener("pointerup",()=>setTimeout(()=>{toolbarInteraction=false},0));
-selectionToolbar.addEventListener("touchstart",e=>{toolbarInteraction=true},{passive:true});
-selectionToolbar.addEventListener("touchend",()=>setTimeout(()=>{toolbarInteraction=false},0),{passive:true});
+[selectionToolbar,moreColorsPanel].forEach(surface=>{
+ surface.addEventListener("pointerdown",()=>holdToolbarInteraction(700));
+ surface.addEventListener("touchstart",()=>holdToolbarInteraction(900),{passive:true});
+});
 document.querySelectorAll(".hl").forEach(b=>{
- b.addEventListener("pointerdown",e=>e.preventDefault());
+ b.addEventListener("pointerdown",e=>{e.preventDefault();holdToolbarInteraction(700)});
  b.addEventListener("click",()=>highlight(b.dataset.color));
 });
-document.getElementById("moreColorsBtn").addEventListener("pointerdown",e=>e.preventDefault());
-document.getElementById("moreColorsBtn").onclick=()=>{
- const p=document.getElementById("moreColorsPanel"); const on=!p.classList.contains("show");
- p.classList.toggle("show",on); p.setAttribute("aria-hidden",on?"false":"true");
-};
+
+const moreColorsBtn=document.getElementById("moreColorsBtn");
+function toggleMoreColors(e){
+ if(e){e.preventDefault();e.stopPropagation();}
+ holdToolbarInteraction(900);
+ const on=!moreColorsPanel.classList.contains("show");
+ moreColorsPanel.classList.toggle("show",on);
+ moreColorsPanel.setAttribute("aria-hidden",on?"false":"true");
+ showHLToolbar();
+}
+moreColorsBtn.addEventListener("pointerdown",toggleMoreColors);
+moreColorsBtn.addEventListener("click",e=>{e.preventDefault();e.stopPropagation();});
 document.getElementById("customColor").addEventListener("change",e=>highlight(e.target.value));
 document.getElementById("addAnnotation").addEventListener("pointerdown",e=>e.preventDefault());
 document.getElementById("addAnnotation").onclick=()=>openAnnotationModal();
@@ -1012,6 +1177,10 @@ document.getElementById("fetchArticleUrl").onclick=fetchArticleFromUrl;
 document.getElementById("articleFileInput").addEventListener("change",async e=>{const f=e.target.files?.[0];await importArticleFile(f);e.target.value=""});
 document.getElementById("iphoneShareBtn").onclick=()=>{const el=document.getElementById("iphoneShareHelp");el.classList.toggle("show");setImportStatus(el.classList.contains("show")?"iPhone 分享接收端已就緒；需再設定一次捷徑分享動作。":"")};
 document.getElementById("saveArticle").onclick=saveArticleFromModal;
+document.getElementById("articleTitleInput").addEventListener("input",scheduleAutoTopic);
+document.getElementById("articleContentInput").addEventListener("input",scheduleAutoTopic);
+document.getElementById("articleTopicInput").addEventListener("input",()=>{topicManualEdited=true;setTopicAutoHint("已改為手動主題；之後不會自動覆蓋。要重新分析請按「✨ 自動判斷」。",false)});
+document.getElementById("autoTopicBtn").onclick=()=>{topicManualEdited=false;applyAutoTopic(true)};
 document.getElementById("cancelArticle").onclick=closeArticleModal;
 document.getElementById("deleteArticle").onclick=deleteCurrentArticle;
 document.getElementById("articleModal").addEventListener("click",e=>{if(e.target.id==="articleModal")closeArticleModal()});
